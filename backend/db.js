@@ -1,5 +1,4 @@
 const mysql = require('mysql2');
-require('dotenv').config();
 
 const db = mysql.createPool({
     host: process.env.DB_HOST,
@@ -11,12 +10,14 @@ const db = mysql.createPool({
     queueLimit: 0
 });
 
-connection.connect((err) => {
+// Prueba de conexión inicial
+db.getConnection((err, connection) => {
     if (err) {
-        console.error('Error conectando a la base de datos:', err);
-        return;
+        console.error('Error al conectar con la base de datos en HostGator:', err);
+    } else {
+        console.log('¡Conexión exitosa a la base de datos del Helpdesk!');
+        connection.release(); // Libera el hilo de inmediato
     }
-    console.log('¡Conexión exitosa a la base de datos MySQL!');
 });
 
-module.exports = connection;
+module.exports = db;
