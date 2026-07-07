@@ -1,0 +1,48 @@
+/* Contenedor principal */
+.login-container {
+    padding: 50px;
+    max-width: 400px;
+    margin: 0 auto;
+    text-align: center;
+    font-family: sans-serif;
+}
+
+.login-subtitle {
+    color: gray;
+    margin-bottom: 20px;
+}
+
+/* Formulario */
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.login-input {
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.login-button {
+    padding: 12px;
+    background-color: #005b96; /* Azul Krystal */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.login-button:hover {
+    background-color: #004675;
+}
+
+/* Mensajes de error */
+.login-error {
+    color: red;
+    margin-top: 15px;
+    font-size: 14px;
+}
