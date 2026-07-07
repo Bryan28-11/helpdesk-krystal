@@ -23,7 +23,7 @@ const NuevoReporte = () => {
         }
 
         try {
-            const response = await fetch('http://localhost:3000/api/reportes', {
+            const response = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

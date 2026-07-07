@@ -18,7 +18,7 @@ const Dashboard = () => {
             }
 
             try {
-                const response = await fetch('http://localhost:3000/api/reportes', {
+                const response = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }

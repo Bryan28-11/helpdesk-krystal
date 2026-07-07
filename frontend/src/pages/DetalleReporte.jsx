@@ -15,7 +15,7 @@ const DetalleReporte = () => {
     const cargarComentarios = async () => {
         const token = localStorage.getItem('token');
         try {
-            const response = await fetch(`http://localhost:3000/api/comentarios/${id}`, {
+            const response = await fetch(`https://helpdesk-krystal.onrender.com/api/comentarios/${id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -38,7 +38,7 @@ const DetalleReporte = () => {
     const handleCambiarEstado = async (nuevoEstado) => {
         const token = localStorage.getItem('token');
         try {
-            const response = await fetch(`http://localhost:3000/api/reportes/${id}`, {
+            const response = await fetch(`https://helpdesk-krystal.onrender.com/api/reportes/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -69,7 +69,7 @@ const DetalleReporte = () => {
 
         const token = localStorage.getItem('token');
         try {
-            const response = await fetch('http://localhost:3000/api/comentarios', {
+            const response = await fetch('https://helpdesk-krystal.onrender.com/api/comentarios', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
