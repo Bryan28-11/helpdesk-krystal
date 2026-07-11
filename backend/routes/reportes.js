@@ -35,30 +35,20 @@ router.post('/', verificarToken, (req, res) => {
 
 // Ruta para obtener los reportes (GET /api/reportes)
 router.get('/', verificarToken, (req, res) => {
-    const { id, rol } = req.usuario; // Sacamos el ID y el rol del token del usuario
+    const { id, rol, nombre } = req.usuario; // Sacamos los datos del token
 
     let query = '';
     let parametros = [];
 
-    // Lógica de permisos
+    // Lógica de permisos adaptada a la base de datos de HostGator
     if (rol === 'admin') {
-        // El admin ve todos los reportes, unidos con el nombre de quién lo reportó
-        query = `
-            SELECT r.*, u.nombre AS reportado_por 
-            FROM reportes r 
-            JOIN usuarios u ON r.usuario_id = u.id 
-            ORDER BY r.fecha_creacion DESC
-        `;
+        // El admin ve todos los reportes, ordenados por la columna real 'fecha_reporte'
+        query = `SELECT * FROM reportes ORDER BY fecha_reporte DESC`;
     } else {
-        // El usuario normal solo ve sus propios reportes
-        query = `
-            SELECT r.*, u.nombre AS reportado_por 
-            FROM reportes r 
-            JOIN usuarios u ON r.usuario_id = u.id 
-            WHERE r.usuario_id = ? 
-            ORDER BY r.fecha_creacion DESC
-        `;
-        parametros = [id];
+        // El usuario normal solo ve sus propios reportes (usamos la columna reportado_por)
+        query = `SELECT * FROM reportes WHERE reportado_por = ? ORDER BY fecha_reporte DESC`;
+        // Si en tu frontend guardas el nombre de la persona, usa 'nombre'. Si guardas el ID, usa 'id'.
+        parametros = [nombre || id]; 
     }
 
     // Ejecutamos la consulta
