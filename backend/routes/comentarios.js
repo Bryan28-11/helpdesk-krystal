@@ -20,24 +20,42 @@ router.post('/', verificarToken, (req, res) => {
 });
 
 // Ruta para ver los comentarios de un reporte específico (GET /api/comentarios/:reporte_id)
-router.get('/:reporte_id', verificarToken, (req, res) => {
-    const { reporte_id } = req.params;
-
-    // Traemos los comentarios y los unimos con la tabla Usuarios para saber quién lo escribió
-    const query = `
-        SELECT c.*, u.nombre AS autor, u.rol 
-        FROM comentarios c 
-        JOIN usuarios u ON c.usuario_id = u.id 
-        WHERE c.reporte_id = ? 
-        ORDER BY c.fecha ASC
-    `;
-
-    db.query(query, [reporte_id], (err, results) => {
+// Ruta para obtener los comentarios de un reporte específico
+router.get('/:id', verificarToken, (req, res) => {
+    const reporteId = req.params.id;
+    
+    // Consulta limpia apuntando a la tabla en minúsculas
+    const query = `SELECT * FROM comentarios WHERE reporte_id = ? ORDER BY fecha ASC`;
+    
+    db.query(query, [reporteId], (err, results) => {
         if (err) {
             console.error('Error al obtener comentarios:', err);
-            return res.status(500).json({ error: 'Error al consultar la bitácora' });
+            return res.status(500).json({ error: 'Error al consultar la base de datos' });
         }
         res.json(results);
+    });
+});
+
+// Ruta para agregar un nuevo comentario
+router.post('/', verificarToken, (req, res) => {
+    const { reporte_id, comentario } = req.body;
+    
+    // Sacamos quién lo escribe directamente del token
+    const autor = req.usuario.nombre || req.usuario.email || String(req.usuario.id);
+    const rol = req.usuario.rol || 'empleado';
+
+    // Usamos las columnas exactas que creamos en HostGator: autor y rol
+    const query = `
+        INSERT INTO comentarios (reporte_id, autor, rol, comentario) 
+        VALUES (?, ?, ?, ?)
+    `;
+    
+    db.query(query, [reporte_id, autor, rol, comentario], (err, results) => {
+        if (err) {
+            console.error('Error al guardar el comentario:', err);
+            return res.status(500).json({ error: 'Error al guardar en la base de datos' });
+        }
+        res.status(201).json({ mensaje: 'Comentario agregado exitosamente' });
     });
 });
 
