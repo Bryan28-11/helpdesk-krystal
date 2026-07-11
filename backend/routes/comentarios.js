@@ -8,7 +8,7 @@ router.post('/', verificarToken, (req, res) => {
     const { reporte_id, comentario } = req.body;
     const usuario_id = req.usuario.id; // Quién lo escribe (lo sacamos del token)
 
-    const query = 'INSERT INTO Comentarios (reporte_id, usuario_id, comentario) VALUES (?, ?, ?)';
+    const query = 'INSERT INTO comentarios (reporte_id, usuario_id, comentario) VALUES (?, ?, ?)';
 
     db.query(query, [reporte_id, usuario_id, comentario], (err, results) => {
         if (err) {
