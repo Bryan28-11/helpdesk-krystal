@@ -14,7 +14,7 @@ router.post('/', verificarToken, (req, res) => {
 
     // 3. Preparamos la consulta SQL
     const query = `
-        INSERT INTO Reportes 
+        INSERT INTO reportes 
         (usuario_id, departamento, equipo_afectado, descripcion, urgencia) 
         VALUES (?, ?, ?, ?, ?)
     `;
