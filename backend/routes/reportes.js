@@ -45,7 +45,7 @@ router.get('/', verificarToken, (req, res) => {
         // El admin ve todos los reportes, unidos con el nombre de quién lo reportó
         query = `
             SELECT r.*, u.nombre AS reportado_por 
-            FROM Reportes r 
+            FROM reportes r 
             JOIN usuarios u ON r.usuario_id = u.id 
             ORDER BY r.fecha_creacion DESC
         `;
@@ -53,7 +53,7 @@ router.get('/', verificarToken, (req, res) => {
         // El usuario normal solo ve sus propios reportes
         query = `
             SELECT r.*, u.nombre AS reportado_por 
-            FROM Reportes r 
+            FROM reportes r 
             JOIN usuarios u ON r.usuario_id = u.id 
             WHERE r.usuario_id = ? 
             ORDER BY r.fecha_creacion DESC

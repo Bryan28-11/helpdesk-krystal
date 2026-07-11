@@ -26,7 +26,7 @@ router.get('/:reporte_id', verificarToken, (req, res) => {
     // Traemos los comentarios y los unimos con la tabla Usuarios para saber quién lo escribió
     const query = `
         SELECT c.*, u.nombre AS autor, u.rol 
-        FROM Comentarios c 
+        FROM comentarios c 
         JOIN usuarios u ON c.usuario_id = u.id 
         WHERE c.reporte_id = ? 
         ORDER BY c.fecha ASC
