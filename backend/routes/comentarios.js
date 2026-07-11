@@ -27,7 +27,7 @@ router.get('/:reporte_id', verificarToken, (req, res) => {
     const query = `
         SELECT c.*, u.nombre AS autor, u.rol 
         FROM Comentarios c 
-        JOIN Usuarios u ON c.usuario_id = u.id 
+        JOIN usuarios u ON c.usuario_id = u.id 
         WHERE c.reporte_id = ? 
         ORDER BY c.fecha ASC
     `;

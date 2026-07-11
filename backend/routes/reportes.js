@@ -46,7 +46,7 @@ router.get('/', verificarToken, (req, res) => {
         query = `
             SELECT r.*, u.nombre AS reportado_por 
             FROM Reportes r 
-            JOIN Usuarios u ON r.usuario_id = u.id 
+            JOIN usuarios u ON r.usuario_id = u.id 
             ORDER BY r.fecha_creacion DESC
         `;
     } else {
@@ -54,7 +54,7 @@ router.get('/', verificarToken, (req, res) => {
         query = `
             SELECT r.*, u.nombre AS reportado_por 
             FROM Reportes r 
-            JOIN Usuarios u ON r.usuario_id = u.id 
+            JOIN usuarios u ON r.usuario_id = u.id 
             WHERE r.usuario_id = ? 
             ORDER BY r.fecha_creacion DESC
         `;

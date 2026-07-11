@@ -17,7 +17,7 @@ router.post('/registro', async (req, res) => {
         const rolUsuario = rol ? rol : 'usuario';
 
         // 3. Insertar el usuario en la base de datos
-        const query = 'INSERT INTO Usuarios (nombre, email, password, rol) VALUES (?, ?, ?, ?)';
+        const query = 'INSERT INTO usuarios (nombre, email, password, rol) VALUES (?, ?, ?, ?)';
         
         db.query(query, [nombre, email, hashedPassword, rolUsuario], (err, results) => {
             if (err) {
@@ -40,7 +40,7 @@ router.post('/login', (req, res) => {
     const { email, password } = req.body;
 
     // 1. Buscar si el correo existe en la base de datos
-    const query = 'SELECT * FROM Usuarios WHERE email = ?';
+    const query = 'SELECT * FROM usuarios WHERE email = ?';
     
     db.query(query, [email], async (err, results) => {
         if (err) {
