@@ -5,33 +5,33 @@ const verificarToken = require('../middleware/auth'); // Importamos a nuestro gu
 
 // Ruta para crear un nuevo reporte (POST /api/reportes)
 // Ponemos "verificarToken" justo en medio para proteger la ruta
+// Ruta para crear un nuevo reporte (POST /api/reportes)
 router.post('/', verificarToken, (req, res) => {
-    // 1. Recibimos los datos que escribió el usuario en el formulario
+    // Extraemos los datos que envía el formulario de React
     const { departamento, equipo_afectado, descripcion, urgencia } = req.body;
     
-    // 2. ¿Recuerdas que el middleware guardó los datos del token? Los sacamos de aquí:
-    const usuario_id = req.usuario.id; 
+    // Tomamos el dato del usuario que inició sesión para saber quién lo reporta
+    // Si no tienes req.usuario.nombre, usaremos su email o su ID como respaldo
+    const reportado_por = req.usuario.nombre || req.usuario.email || String(req.usuario.id);
 
-    // 3. Preparamos la consulta SQL
+    // Consulta SQL adaptada a HostGator (usamos reportado_por en lugar de usuario_id)
     const query = `
         INSERT INTO reportes 
-        (usuario_id, departamento, equipo_afectado, descripcion, urgencia) 
+        (departamento, equipo_afectado, descripcion, urgencia, reportado_por) 
         VALUES (?, ?, ?, ?, ?)
     `;
+    
+    const parametros = [departamento, equipo_afectado, descripcion, urgencia, reportado_por];
 
-    // 4. Guardamos en la base de datos
-    db.query(query, [usuario_id, departamento, equipo_afectado, descripcion, urgencia], (err, results) => {
+    // Ejecutamos la inserción
+    db.query(query, parametros, (err, results) => {
         if (err) {
             console.error('Error al crear el reporte:', err);
-            return res.status(500).json({ error: 'Hubo un error al guardar tu reporte.' });
+            return res.status(500).json({ error: 'Error al guardar en la base de datos' });
         }
-        
-        res.status(201).json({
-            mensaje: '¡Reporte creado exitosamente en el sistema!',
-            folio_ticket: results.insertId
-        });
+        res.status(201).json({ mensaje: 'Reporte creado exitosamente', id: results.insertId });
     });
-});
+});;
 
 // Ruta para obtener los reportes (GET /api/reportes)
 router.get('/', verificarToken, (req, res) => {
