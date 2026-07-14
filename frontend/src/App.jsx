@@ -3,7 +3,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import NuevoReporte from './pages/NuevoReporte';
 import DetalleReporte from './pages/DetalleReporte';
-
+import DashboardStats from "./pages/DashboardStats";
 
 function App() {
   return (
@@ -16,6 +16,9 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/nuevo-reporte" element={<NuevoReporte />} />
         <Route path="/reporte/:id" element={<DetalleReporte />} />
+
+        {/* LA RUTA NUEVA PARA LAS ESTADÍSTICAS */}
+        <Route path="/estadisticas" element={<DashboardStats />} />
       </Routes>
     </BrowserRouter>
   );
