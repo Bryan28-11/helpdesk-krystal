@@ -36,6 +36,35 @@ router.get('/:id', verificarToken, (req, res) => {
     });
 });
 
+// Ruta para obtener estadísticas del dashboard (GET /api/reportes/dashboard/stats)
+router.get('/dashboard/stats', verificarToken, (req, res) => {
+    // Consulta 1: Contar reportes por nivel de urgencia
+    const queryUrgencia = `SELECT urgencia, COUNT(*) as total FROM reportes GROUP BY urgencia`;
+
+    db.query(queryUrgencia, (err, urgenciaResults) => {
+        if (err) {
+            console.error('Error en stats de urgencia:', err);
+            return res.status(500).json({ error: 'Error al obtener estadísticas' });
+        }
+
+        // Consulta 2: Contar reportes por departamento
+        const queryDepartamento = `SELECT departamento, COUNT(*) as total FROM reportes GROUP BY departamento`;
+
+        db.query(queryDepartamento, (err, deptoResults) => {
+            if (err) {
+                console.error('Error en stats de departamento:', err);
+                return res.status(500).json({ error: 'Error al obtener estadísticas' });
+            }
+
+            // Enviamos ambos resultados agrupados en un solo objeto JSON
+            res.json({
+                urgencia: urgenciaResults,
+                departamento: deptoResults
+            });
+        });
+    });
+});
+
 // Ruta para agregar un nuevo comentario
 router.post('/', verificarToken, (req, res) => {
     const { reporte_id, comentario } = req.body;
