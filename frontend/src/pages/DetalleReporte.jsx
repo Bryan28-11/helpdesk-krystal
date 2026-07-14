@@ -1,44 +1,47 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-const DetalleReporte = () => {
-    const { id } = useParams(); // Obtenemos el ID del reporte desde la URL
+export default function DetalleReporte() {
+    const { id } = useParams();
     const navigate = useNavigate();
     
-    const [comentarios, setComentarios] = useState([]);
-    const [nuevoComentario, setNuevoComentario] = useState('');
-    const [estado, setEstado] = useState('');
-    const [error, setError] = useState('');
-    const [mensaje, setMensaje] = useState('');
+    const [reporte, setReporte] = useState(null);
+    const [estadoActual, setEstadoActual] = useState('');
+    const [cargando, setCargando] = useState(true);
 
-    // Cargar los comentarios de este ticket
-    const cargarComentarios = async () => {
-        const token = localStorage.getItem('token');
-        try {
-            const response = await fetch(`https://helpdesk-krystal.onrender.com/api/comentarios/${id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await response.json();
-            if (response.ok) {
-                setComentarios(data);
-            }
-        } catch (err) {
-            console.error('Error al cargar comentarios:', err);
-        }
-    };
-
+    // 1. Cargar los datos del ticket al abrir la pantalla
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) { navigate('/'); return; }
-        
-        cargarComentarios();
-    }, [id, navigate]);
+        const cargarDatos = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                // Traemos los reportes del backend en Render
+                const respuesta = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (respuesta.ok) {
+                    const datos = await respuesta.json();
+                    // Buscamos exactamente el ticket al que le dimos clic
+                    const ticket = datos.find(r => String(r.id) === String(id));
+                    setReporte(ticket);
+                    setEstadoActual(ticket?.estado || 'Abierto');
+                }
+            } catch (error) {
+                console.error("Error al obtener los detalles:", error);
+            } finally {
+                setCargando(false);
+            }
+        };
+        cargarDatos();
+    }, [id]);
 
-    // Función para cambiar el estado del ticket (PUT)
-    const handleCambiarEstado = async (nuevoEstado) => {
-        const token = localStorage.getItem('token');
+    // 2. Función para guardar el nuevo estado en la base de datos
+    const cambiarEstado = async (nuevoEstado) => {
+        setEstadoActual(nuevoEstado); // Cambio de color visual instantáneo
+        
         try {
-            const response = await fetch(`https://helpdesk-krystal.onrender.com/api/reportes/${id}`, {
+            const token = localStorage.getItem('token');
+            await fetch(`https://helpdesk-krystal.onrender.com/api/reportes/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -46,107 +49,86 @@ const DetalleReporte = () => {
                 },
                 body: JSON.stringify({ estado: nuevoEstado })
             });
-
-            const data = await response.json();
-            if (response.ok) {
-                setMensaje(data.mensaje);
-                setEstado(nuevoEstado);
-                // Recargamos comentarios porque el backend genera un historial si es necesario
-                cargarComentarios(); 
-                setTimeout(() => setMensaje(''), 3000);
-            } else {
-                setError(data.error);
-            }
-        } catch (err) {
-            setError('Error al actualizar el estado.');
+            // Más adelante aquí conectaremos la notificación flotante (Punto 3)
+        } catch (error) {
+            console.error("Error al actualizar la base de datos:", error);
         }
     };
 
-    // Función para enviar un comentario nuevo (POST)
-    const handleEnviarComentario = async (e) => {
-        e.preventDefault();
-        if (!nuevoComentario.trim()) return;
-
-        const token = localStorage.getItem('token');
-        try {
-            const response = await fetch('https://helpdesk-krystal.onrender.com/api/comentarios', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ reporte_id: id, comentario: nuevoComentario })
-            });
-
-            if (response.ok) {
-                setNuevoComentario('');
-                cargarComentarios(); // Recargamos la lista para ver el mensaje nuevo
-            } else {
-                const data = await response.json();
-                setError(data.error);
-            }
-        } catch (err) {
-            setError('Error al enviar el comentario.');
+    // 3. Diccionario de colores según la urgencia de la etiqueta
+    const obtenerColorBadge = (estado) => {
+        switch(estado) {
+            case 'Abierto': 
+                return 'bg-red-500/20 text-red-400 border-red-500/50';
+            case 'En Proceso': 
+                return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50';
+            case 'Resuelto': 
+                return 'bg-green-500/20 text-green-400 border-green-500/50';
+            default: 
+                return 'bg-gray-500/20 text-gray-400 border-gray-500/50';
         }
     };
+
+    // Pantalla de carga mientras trae los datos
+    if (cargando) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-blue-400 font-bold text-xl animate-pulse">Cargando expediente...</div>;
+    if (!reporte) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-red-400">Reporte no encontrado en la base de datos.</div>;
 
     return (
-        <div style={{ padding: '30px', fontFamily: 'sans-serif', maxWidth: '700px', margin: '0 auto' }}>
-            <button 
-                onClick={() => navigate('/dashboard')} 
-                style={{ marginBottom: '20px', padding: '8px 12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-                ← Volver al Panel
-            </button>
+        <div className="min-h-screen bg-gray-900 p-8 text-white flex justify-center">
+            <div className="w-full max-w-4xl bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden h-fit">
+                
+                {/* ENCABEZADO INTERACTIVO */}
+                <div className="p-6 border-b border-gray-700 bg-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-3xl font-extrabold text-blue-400 tracking-tight">Ticket #{reporte.id}</h1>
+                        <p className="text-gray-400 text-sm mt-1">Levantado por: <span className="text-gray-200 font-medium">{reporte.reportado_por}</span></p>
+                    </div>
+                    
+                    {/* SELECTOR DE ESTADO */}
+                    <div className="flex items-center gap-3 bg-gray-900 p-2 rounded-xl border border-gray-700 shadow-inner">
+                        <span className="text-xs text-gray-400 uppercase tracking-widest font-semibold ml-2">Fase:</span>
+                        <select 
+                            value={estadoActual}
+                            onChange={(e) => cambiarEstado(e.target.value)}
+                            className={`font-bold border rounded-lg px-4 py-2 outline-none appearance-none cursor-pointer transition-all ${obtenerColorBadge(estadoActual)} hover:brightness-125`}
+                        >
+                            <option value="Abierto" className="bg-gray-900 text-red-400">🔴 Abierto</option>
+                            <option value="En Proceso" className="bg-gray-900 text-yellow-400">🟡 En Proceso</option>
+                            <option value="Resuelto" className="bg-gray-900 text-green-400">🟢 Resuelto</option>
+                        </select>
+                    </div>
+                </div>
 
-            <h2>Gestión de Ticket Folio: #{id}</h2>
-
-            {/* Zona de Acciones de Administrador (Cambiar Estado) */}
-            <div style={{ backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #e9ecef' }}>
-                <span style={{ fontWeight: 'bold', marginRight: '15px' }}>Actualizar Estado:</span>
-                <button onClick={() => handleCambiarEstado('Abierto')} style={{ marginRight: '10px', padding: '6px 12px', backgroundColor: '#f8d7da', color: '#721c24', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Abierto</button>
-                <button onClick={() => handleCambiarEstado('En Proceso')} style={{ marginRight: '10px', padding: '6px 12px', backgroundColor: '#fff3cd', color: '#856404', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>En Proceso</button>
-                <button onClick={() => handleCambiarEstado('Resuelto')} style={{ padding: '6px 12px', backgroundColor: '#d4edda', color: '#155724', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Resuelto</button>
+                {/* CUERPO DEL REPORTE */}
+                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-800/50">
+                    <div className="bg-gray-900 p-5 rounded-xl border border-gray-700 shadow-sm">
+                        <h3 className="text-blue-500 text-xs uppercase tracking-widest font-bold mb-2">Departamento Afectado</h3>
+                        <p className="font-medium text-xl text-gray-200">{reporte.departamento}</p>
+                    </div>
+                    
+                    <div className="bg-gray-900 p-5 rounded-xl border border-gray-700 shadow-sm">
+                        <h3 className="text-blue-500 text-xs uppercase tracking-widest font-bold mb-2">Equipo en Falla</h3>
+                        <p className="font-medium text-xl text-gray-200">{reporte.equipo_afectado}</p>
+                    </div>
+                    
+                    <div className="bg-gray-900 p-5 rounded-xl border border-gray-700 shadow-sm md:col-span-2">
+                        <h3 className="text-blue-500 text-xs uppercase tracking-widest font-bold mb-3">Descripción del Problema</h3>
+                        <p className="font-medium text-gray-300 leading-relaxed whitespace-pre-wrap text-lg">
+                            {reporte.descripcion}
+                        </p>
+                    </div>
+                </div>
+                
+                {/* BARRA INFERIOR DE ACCIÓN */}
+                <div className="p-6 border-t border-gray-700 bg-gray-900 flex justify-end">
+                    <button 
+                        onClick={() => navigate('/dashboard')}
+                        className="px-6 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all font-semibold shadow-md border border-gray-600"
+                    >
+                        ← Regresar al Panel
+                    </button>
+                </div>
             </div>
-
-            {mensaje && <p style={{ color: 'green', fontWeight: 'bold' }}>{mensaje}</p>}
-            {error && <p style={{ color: 'red' }}>{error}</p>}
-
-            {/* Sección de la Bitácora de Comentarios */}
-            <h3>Bitácora de Seguimiento</h3>
-            <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '15px', height: '300px', overflowY: 'auto', backgroundColor: '#fff', marginBottom: '20px' }}>
-                {comentarios.length === 0 ? (
-                    <p style={{ color: 'gray', textAlign: 'center', marginTop: '100px' }}>No hay mensajes en este ticket aún.</p>
-                ) : (
-                    comentarios.map((c) => (
-                        <div key={c.id} style={{ marginBottom: '15px', paddingBottom: '10px', borderBottom: '1px solid #f1f1f1' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#555', marginBottom: '4px' }}>
-                                <span><strong style={{ color: '#005b96' }}>{c.autor}</strong> ({c.rol})</span>
-                                <span>{new Date(c.fecha).toLocaleString()}</span>
-                            </div>
-                            <p style={{ margin: 0, fontSize: '15px', color: '#333' }}>{c.comentario}</p>
-                        </div>
-                    ))
-                )}
-            </div>
-
-            {/* Formulario para agregar un nuevo comentario */}
-            <form onSubmit={handleEnviarComentario} style={{ display: 'flex', gap: '10px' }}>
-                <input 
-                    type="text" 
-                    placeholder="Escribe un mensaje o actualización sobre el equipo..."
-                    value={nuevoComentario}
-                    onChange={(e) => setNuevoComentario(e.target.value)}
-                    required
-                    style={{ flex: 1, padding: '12px', border: '1px solid #ccc', borderRadius: '5px' }}
-                />
-                <button 
-                    type="submit" 
-                    style={{ padding: '12px 20px', backgroundColor: '#005b96', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    Enviar
-                </button>
-            </form>
         </div>
     );
-};
-
-export default DetalleReporte;
+}
