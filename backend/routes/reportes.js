@@ -3,18 +3,41 @@ const router = express.Router();
 const db = require('../db');
 const verificarToken = require('../middleware/auth'); // Importamos a nuestro guardia
 
-// Ruta para crear un nuevo reporte (POST /api/reportes)
-// Ponemos "verificarToken" justo en medio para proteger la ruta
-// Ruta para crear un nuevo reporte (POST /api/reportes)
+// 1. PRIMERO LA RUTA DE ESTADÍSTICAS (Hasta arriba para que no haya error 404)
+router.get('/dashboard/stats', verificarToken, (req, res) => {
+    // Consulta 1: Contar reportes por nivel de urgencia
+    const queryUrgencia = `SELECT urgencia, COUNT(*) as total FROM reportes GROUP BY urgencia`;
+
+    db.query(queryUrgencia, (err, urgenciaResults) => {
+        if (err) {
+            console.error('Error en stats de urgencia:', err);
+            return res.status(500).json({ error: 'Error al obtener estadísticas' });
+        }
+
+        // Consulta 2: Contar reportes por departamento
+        const queryDepartamento = `SELECT departamento, COUNT(*) as total FROM reportes GROUP BY departamento`;
+
+        db.query(queryDepartamento, (err, deptoResults) => {
+            if (err) {
+                console.error('Error en stats de departamento:', err);
+                return res.status(500).json({ error: 'Error al obtener estadísticas' });
+            }
+
+            // Enviamos ambos resultados agrupados en un solo objeto JSON
+            res.json({
+                urgencia: urgenciaResults,
+                departamento: deptoResults
+            });
+        });
+    });
+});
+
+// 2. RUTA PARA CREAR UN NUEVO REPORTE (POST /api/reportes)
 router.post('/', verificarToken, (req, res) => {
-    // Extraemos los datos que envía el formulario de React
     const { departamento, equipo_afectado, descripcion, urgencia } = req.body;
     
-    // Tomamos el dato del usuario que inició sesión para saber quién lo reporta
-    // Si no tienes req.usuario.nombre, usaremos su email o su ID como respaldo
     const reportado_por = req.usuario.nombre || req.usuario.email || String(req.usuario.id);
 
-    // Consulta SQL adaptada a HostGator (usamos reportado_por en lugar de usuario_id)
     const query = `
         INSERT INTO reportes 
         (departamento, equipo_afectado, descripcion, urgencia, reportado_por) 
@@ -23,7 +46,6 @@ router.post('/', verificarToken, (req, res) => {
     
     const parametros = [departamento, equipo_afectado, descripcion, urgencia, reportado_por];
 
-    // Ejecutamos la inserción
     db.query(query, parametros, (err, results) => {
         if (err) {
             console.error('Error al crear el reporte:', err);
@@ -31,53 +53,47 @@ router.post('/', verificarToken, (req, res) => {
         }
         res.status(201).json({ mensaje: 'Reporte creado exitosamente', id: results.insertId });
     });
-});;
+});
 
-// Ruta para obtener los reportes (GET /api/reportes)
+// 3. RUTA PARA OBTENER LOS REPORTES (GET /api/reportes)
 router.get('/', verificarToken, (req, res) => {
-    const { id, rol, nombre } = req.usuario; // Sacamos los datos del token
+    const { id, rol, nombre } = req.usuario; 
 
     let query = '';
     let parametros = [];
 
-    // Lógica de permisos adaptada a la base de datos de HostGator
     if (rol === 'admin') {
-        // El admin ve todos los reportes, ordenados por la columna real 'fecha_reporte'
         query = `SELECT * FROM reportes ORDER BY fecha_reporte DESC`;
     } else {
-        // El usuario normal solo ve sus propios reportes (usamos la columna reportado_por)
         query = `SELECT * FROM reportes WHERE reportado_por = ? ORDER BY fecha_reporte DESC`;
-        // Si en tu frontend guardas el nombre de la persona, usa 'nombre'. Si guardas el ID, usa 'id'.
         parametros = [nombre || id]; 
     }
 
-    // Ejecutamos la consulta
     db.query(query, parametros, (err, results) => {
         if (err) {
             console.error('Error al obtener los reportes:', err);
             return res.status(500).json({ error: 'Error al consultar la base de datos' });
         }
-        res.json(results); // Devolvemos la lista de tickets
+        res.json(results); 
     });
 });
 
-// Ruta para actualizar el estado de un reporte (PUT /api/reportes/:id)
+// 4. RUTA PARA ACTUALIZAR EL ESTADO DE UN REPORTE (PUT /api/reportes/:id)
 router.put('/:id', verificarToken, (req, res) => {
-    const { id } = req.params; // Sacamos el número de folio (id) de la URL
-    const { estado } = req.body; // Sacamos el nuevo estado que nos mandan
+    const { id } = req.params; 
+    const { estado } = req.body; 
 
-    // Validamos que no escriban un estado que no existe
     if (!['Abierto', 'En Proceso', 'Resuelto'].includes(estado)) {
         return res.status(400).json({ error: 'Estado no válido. Usa: Abierto, En Proceso o Resuelto' });
     }
 
-    let query = 'UPDATE Reportes SET estado = ?';
+    // Tabla en minúsculas para que Linux no marque error
+    let query = 'UPDATE reportes SET estado = ?';
     
-    // Magia: Si el admin lo marca como Resuelto, el sistema le pone la fecha y hora exacta de hoy
     if (estado === 'Resuelto') {
         query += ', fecha_resolucion = CURRENT_TIMESTAMP';
     } else {
-        query += ', fecha_resolucion = NULL'; // Si lo regresan a abierto, borramos la fecha
+        query += ', fecha_resolucion = NULL'; 
     }
 
     query += ' WHERE id = ?';
