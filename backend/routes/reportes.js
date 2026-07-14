@@ -84,23 +84,15 @@ router.put('/:id', verificarToken, (req, res) => {
     const { estado } = req.body; 
 
     if (!['Abierto', 'En Proceso', 'Resuelto'].includes(estado)) {
-        return res.status(400).json({ error: 'Estado no válido. Usa: Abierto, En Proceso o Resuelto' });
+        return res.status(400).json({ error: 'Estado no válido' });
     }
 
-    // Tabla en minúsculas para que Linux no marque error
-    let query = 'UPDATE reportes SET estado = ?';
-    
-    if (estado === 'Resuelto') {
-        query += ', fecha_resolucion = CURRENT_TIMESTAMP';
-    } else {
-        query += ', fecha_resolucion = NULL'; 
-    }
-
-    query += ' WHERE id = ?';
+    // Actualizamos únicamente el estado, sin buscar columnas extra de fechas
+    const query = 'UPDATE reportes SET estado = ? WHERE id = ?';
 
     db.query(query, [estado, id], (err, results) => {
         if (err) {
-            console.error('Error al actualizar:', err);
+            console.error('Error al actualizar el estado:', err);
             return res.status(500).json({ error: 'Error al actualizar el reporte' });
         }
         
