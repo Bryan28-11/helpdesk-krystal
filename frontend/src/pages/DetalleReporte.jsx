@@ -1,29 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import './styles/DetalleReporte.css'; // <-- Importación directa del CSS puro
+import './styles/DetalleReporte.css';
 
 export default function DetalleReporte() {
     const { id } = useParams();
     const navigate = useNavigate();
     
+    // Estados del ticket
     const [reporte, setReporte] = useState(null);
     const [estadoActual, setEstadoActual] = useState('');
     const [cargando, setCargando] = useState(true);
+
+    // Nuevos estados para los comentarios
+    const [comentarios, setComentarios] = useState([]);
+    const [nuevoComentario, setNuevoComentario] = useState('');
+    const [enviandoComentario, setEnviandoComentario] = useState(false);
 
     useEffect(() => {
         const cargarDatos = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const respuesta = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
+                
+                // 1. Traer los detalles del ticket
+                const resReportes = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
-                if (respuesta.ok) {
-                    const datos = await respuesta.json();
+                if (resReportes.ok) {
+                    const datos = await resReportes.json();
                     const ticket = datos.find(r => String(r.id) === String(id));
                     setReporte(ticket);
                     setEstadoActual(ticket?.estado || 'Abierto');
                 }
+
+                // 2. Traer el historial de comentarios
+                const resComentarios = await fetch(`https://helpdesk-krystal.onrender.com/api/comentarios/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (resComentarios.ok) {
+                    const historial = await resComentarios.json();
+                    setComentarios(historial);
+                }
+
             } catch (error) {
                 console.error("Error al obtener los detalles:", error);
             } finally {
@@ -33,6 +52,7 @@ export default function DetalleReporte() {
         cargarDatos();
     }, [id]);
 
+    // Función para cambiar de Abierto a Resuelto
     const cambiarEstado = async (nuevoEstado) => {
         setEstadoActual(nuevoEstado); 
         try {
@@ -47,6 +67,45 @@ export default function DetalleReporte() {
             });
         } catch (error) {
             console.error("Error al actualizar:", error);
+        }
+    };
+
+    // Función para enviar un nuevo comentario
+    const agregarComentario = async (e) => {
+        e.preventDefault();
+        if (!nuevoComentario.trim()) return; // No enviar si está vacío
+        
+        setEnviandoComentario(true);
+        try {
+            const token = localStorage.getItem('token');
+            const respuesta = await fetch(`https://helpdesk-krystal.onrender.com/api/comentarios/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ comentario: nuevoComentario })
+            });
+
+            if (respuesta.ok) {
+                const data = await respuesta.json();
+                
+                // Truco de magia: Agregamos el comentario nuevo a la lista actual para que se vea instantáneo
+                const comentarioFresco = {
+                    id: data.id,
+                    autor: data.autor,
+                    rol: data.rol,
+                    comentario: data.comentario,
+                    fecha: data.fecha
+                };
+                
+                setComentarios([...comentarios, comentarioFresco]);
+                setNuevoComentario(''); // Limpiamos la caja de texto
+            }
+        } catch (error) {
+            console.error("Error al enviar comentario:", error);
+        } finally {
+            setEnviandoComentario(false);
         }
     };
 
@@ -68,9 +127,7 @@ export default function DetalleReporte() {
 
                     <div className="action-row">
                         <button className="btn">✎ Editar</button>
-                        <button className="btn">💬 Comentar</button>
-                        <button className="btn">Asignar</button>
-                        <button className="btn">Resolver este ticket</button>
+                        <button className="btn" onClick={() => document.getElementById('caja-comentario').focus()}>💬 Comentar</button>
                     </div>
 
                     <div className="field-grid">
@@ -88,6 +145,10 @@ export default function DetalleReporte() {
                                 className="status-chip"
                                 value={estadoActual}
                                 onChange={(e) => cambiarEstado(e.target.value)}
+                                style={{ 
+                                    background: estadoActual === 'Resuelto' ? '#e3fcef' : (estadoActual === 'En Proceso' ? '#ffab00' : '#dfe1e6'),
+                                    color: estadoActual === 'Resuelto' ? '#006644' : (estadoActual === 'En Proceso' ? '#172b4d' : '#42526e')
+                                }}
                             >
                                 <option value="Abierto">POR HACER</option>
                                 <option value="En Proceso">EN PROCESO</option>
@@ -106,7 +167,7 @@ export default function DetalleReporte() {
                         </div>
                     </div>
 
-<div className="section">
+                    <div className="section">
                         <div className="section-heading"><h2>Description</h2></div>
                         <p className="description-text">{reporte.descripcion}</p>
                     </div>
@@ -123,23 +184,63 @@ export default function DetalleReporte() {
                             <div className="tab">History</div>
                         </div>
 
-                        {/* Comentario de ejemplo */}
-                        <div className="comment">
-                            <div className="avatar blue"></div>
-                            <div className="comment-body">
-                                <div className="comment-meta">
-                                    <span className="author">Sistemas</span>
-                                    <span className="action-text"> añadió un comentario - </span>
-                                    <span className="time">Hace 2 horas</span>
-                                </div>
-                                <div className="comment-text">
-                                    Se revisó el equipo de Alimentos y Bebidas. Estamos a la espera de que el proveedor entregue el nuevo tóner esta tarde.
-                                </div>
-                            </div>
+                        {/* Caja para escribir el nuevo comentario */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <form onSubmit={agregarComentario}>
+                                <textarea 
+                                    id="caja-comentario"
+                                    placeholder="Escribe un comentario o actualización..."
+                                    value={nuevoComentario}
+                                    onChange={(e) => setNuevoComentario(e.target.value)}
+                                    required
+                                    style={{ 
+                                        width: '100%', minHeight: '70px', padding: '10px', 
+                                        borderRadius: '3px', border: '1px solid #dfe1e6', 
+                                        marginBottom: '8px', outline: 'none', fontFamily: 'inherit',
+                                        background: '#fafbfc'
+                                    }}
+                                />
+                                <button 
+                                    type="submit" 
+                                    disabled={enviandoComentario}
+                                    style={{
+                                        background: '#0052cc', color: '#fff', border: 'none',
+                                        padding: '6px 12px', borderRadius: '3px', fontWeight: '500',
+                                        cursor: enviandoComentario ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    {enviandoComentario ? 'Guardando...' : 'Guardar'}
+                                </button>
+                            </form>
                         </div>
+
+                        {/* Lista dinámica de comentarios */}
+                        {comentarios.length === 0 ? (
+                            <p style={{ fontSize: '14px', color: '#6b778c' }}>Aún no hay comentarios en este ticket.</p>
+                        ) : (
+                            comentarios.map((c, index) => (
+                                <div className="comment" key={c.id || index}>
+                                    {/* Si el rol es Administrador o Sistemas lo pintamos de azul, si es usuario de rojo */}
+                                    <div className={`avatar ${c.rol === 'admin' ? 'blue' : 'rose'}`}></div>
+                                    <div className="comment-body">
+                                        <div className="comment-meta">
+                                            <span className="author">{c.autor}</span>
+                                            <span className="action-text"> añadió un comentario - </span>
+                                            <span className="time">
+                                                {new Date(c.fecha).toLocaleString('es-MX', { 
+                                                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' 
+                                                })}
+                                            </span>
+                                        </div>
+                                        <div className="comment-text" style={{ whiteSpace: 'pre-wrap' }}>
+                                            {c.comentario}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                         
                     </div>
-                </div> {/* <-- Aquí termina el div className="content" */}
                 </div>
 
                 {/* ===================== RIGHT PANEL ===================== */}
@@ -164,5 +265,6 @@ export default function DetalleReporte() {
                 </div>
 
             </div>
+        </div>
     );
 }
