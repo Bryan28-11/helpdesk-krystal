@@ -1,106 +1,71 @@
-import { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './styles/Dashboard.css';
+import './styles/Dashboard.css'; // Importamos el diseño de la tabla
 
-const Dashboard = () => {
+export default function Dashboard() {
     const [reportes, setReportes] = useState([]);
-    const [error, setError] = useState('');
-    
     const navigate = useNavigate();
 
     useEffect(() => {
         const fetchReportes = async () => {
             const token = localStorage.getItem('token');
-            
-            if (!token) {
-                navigate('/');
-                return;
-            }
-
+            if (!token) return navigate('/');
             try {
-                const response = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                const respuesta = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    setReportes(data);
-                } else {
-                    setError(data.error || 'Error al obtener los reportes');
+                if (respuesta.ok) {
+                    const datos = await respuesta.json();
+                    setReportes(datos);
                 }
-            } catch (err) {
-                setError('Error de conexión con el servidor. ¿Está encendido el backend?');
+            } catch (error) {
+                console.error('Error:', error);
             }
         };
-
         fetchReportes();
     }, [navigate]);
 
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        navigate('/');
-    };
-
-return (
-        <div className="dashboard-container">
+    return (
+        <div className="dashboard-content">
             <div className="dashboard-header">
-                <div className="dashboard-title-group">
-                    <h2>Panel de Reportes</h2>
-                    <button onClick={() => navigate('/nuevo-reporte')} className="btn-crear">
-                        + Crear Reporte
-                    </button>
+                <div>
+                    <h1>Cola de Trabajo (Queues)</h1>
+                    <p>Gestiona los incidentes reportados en los departamentos.</p>
                 </div>
-                <button onClick={handleLogout} className="btn-logout">
-                    Cerrar Sesión
+                <button className="btn-primary" onClick={() => navigate('/nuevo-reporte')}>
+                    + Crear Incidente
                 </button>
             </div>
-            
-            {error && <p className="dashboard-error">{error}</p>}
 
-            <div className="table-container">
-                {reportes.length === 0 ? (
-                    <p className="empty-message">No hay reportes registrados en este momento.</p>
-                ) : (
-                    <table className="reportes-table">
-                        <thead>
-                            <tr>
-                                <th>Folio</th>
-                                <th>Departamento</th>
-                                <th>Falla</th>
-                                <th>Reportado por</th>
-                                <th>Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {reportes.map((ticket) => (
-                                <tr 
-                                    key={ticket.id} 
-                                    className="table-row"
-                                    onClick={() => navigate(`/reporte/${ticket.id}`)}
-                                >
-                                    <td className="folio-bold">#{ticket.id}</td>
-                                    <td>{ticket.departamento}</td>
-                                    <td>{ticket.equipo_afectado}</td>
-                                    <td>{ticket.reportado_por}</td>
-                                    <td>
-                                        <span className={`badge ${
-                                            ticket.estado === 'Resuelto' ? 'badge-resuelto' : 
-                                            ticket.estado === 'En Proceso' ? 'badge-proceso' : 'badge-abierto'
-                                        }`}>
-                                            {ticket.estado}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+            <table className="jira-table">
+                <thead>
+                    <tr>
+                        <th>Clave</th>
+                        <th>Resumen (Falla)</th>
+                        <th>Departamento</th>
+                        <th>Solicitante</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {reportes.map((reporte) => (
+                        <tr key={reporte.id} onClick={() => navigate(`/reporte/${reporte.id}`)}>
+                            <td style={{ color: '#0052cc', fontWeight: '600' }}>ITSM-{reporte.id}</td>
+                            <td style={{ fontWeight: '500' }}>{reporte.equipo_afectado}</td>
+                            <td>{reporte.departamento}</td>
+                            <td>{reporte.reportado_por}</td>
+                            <td>
+                                <span className="status-chip" style={{ 
+                                    background: reporte.estado === 'Resuelto' ? '#e3fcef' : (reporte.estado === 'En Proceso' ? '#ffab00' : '#dfe1e6'),
+                                    color: reporte.estado === 'Resuelto' ? '#006644' : (reporte.estado === 'En Proceso' ? '#172b4d' : '#42526e')
+                                }}>
+                                    {reporte.estado.toUpperCase()}
+                                </span>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
         </div>
     );
-};
-
-export default Dashboard;
+}

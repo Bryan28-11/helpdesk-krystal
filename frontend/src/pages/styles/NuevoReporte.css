@@ -1,0 +1,81 @@
+/* src/pages/styles/NuevoReporte.css */
+.form-container {
+  max-width: 650px;
+  padding: 32px;
+}
+
+.form-header {
+  margin-bottom: 28px;
+}
+
+.form-header h1 {
+  font-size: 24px;
+  color: var(--text-dark);
+  margin-bottom: 6px;
+}
+
+.form-header p {
+  color: var(--text-light);
+  font-size: 14px;
+}
+
+.form-group {
+  margin-bottom: 22px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-light);
+  margin-bottom: 8px;
+}
+
+/* El estilo corporativo de las cajas de texto */
+.form-control {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text-dark);
+  background: #fafbfc;
+  border: 2px solid #dfe1e6;
+  border-radius: 3px;
+  outline: none;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+}
+
+.form-control:focus {
+  background: #ffffff;
+  border-color: #4c9aff;
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* Área de botones */
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-cancel {
+  background: transparent;
+  color: var(--blue-link);
+  border: none;
+  padding: 7px 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 14px;
+}
+
+.btn-cancel:hover {
+  background: rgba(9, 32, 77, 0.08);
+  text-decoration: underline;
+}

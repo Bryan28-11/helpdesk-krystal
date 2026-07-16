@@ -1,135 +1,130 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './styles/NuevoReporte.css'; // Conectamos el diseño
 
-const NuevoReporte = () => {
-    const [departamento, setDepartamento] = useState('');
-    const [equipoAfectado, setEquipoAfectado] = useState('');
-    const [descripcion, setDescripcion] = useState('');
-    const [urgencia, setUrgencia] = useState('Media'); // 'Media' por defecto
-    const [mensaje, setMensaje] = useState('');
-    const [error, setError] = useState('');
-
+export default function NuevoReporte() {
     const navigate = useNavigate();
+    const [formulario, setFormulario] = useState({
+        departamento: '',
+        equipo_afectado: '',
+        urgencia: 'Baja',
+        descripcion: ''
+    });
+    const [cargando, setCargando] = useState(false);
 
+    // Actualiza los datos conforme el usuario escribe
+    const handleChange = (e) => {
+        setFormulario({
+            ...formulario,
+            [e.target.name]: e.target.value
+        });
+    };
+
+    // Envía los datos al servidor
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMensaje('');
-        setError('');
-
-        const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/');
-            return;
-        }
-
+        setCargando(true);
+        
         try {
-            const response = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
+            const token = localStorage.getItem('token');
+            const respuesta = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` // Enviamos el token para que el backend sepa quién es
+                    'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({
-                    departamento,
-                    equipo_afectado: equipoAfectado,
-                    descripcion,
-                    urgencia
-                })
+                body: JSON.stringify(formulario)
             });
 
-            const data = await response.json();
-
-            if (response.ok) {
-                setMensaje(`¡Reporte creado con éxito! Folio: #${data.folio_ticket}`);
-                // Limpiamos el formulario
-                setDepartamento('');
-                setEquipoAfectado('');
-                setDescripcion('');
-                
-                // Después de 2 segundos, regresamos automáticamente al panel
-                setTimeout(() => {
-                    navigate('/dashboard');
-                }, 2000);
+            if (respuesta.ok) {
+                // Si todo sale bien, lo mandamos de regreso a la cola de trabajo
+                navigate('/dashboard');
             } else {
-                setError(data.error || 'No se pudo guardar el reporte');
+                alert('Hubo un error al crear el reporte.');
             }
-        } catch (err) {
-            setError('Error al conectar con el servidor.');
+        } catch (error) {
+            console.error("Error de conexión:", error);
+        } finally {
+            setCargando(false);
         }
     };
 
     return (
-        <div style={{ padding: '30px', fontFamily: 'sans-serif', maxWidth: '500px', margin: '0 auto' }}>
-            <button 
-                onClick={() => navigate('/dashboard')} 
-                style={{ marginBottom: '20px', padding: '8px 12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-                ← Volver al Panel
-            </button>
+        <div className="form-container">
+            <div className="form-header">
+                <h1>Crear Incidente</h1>
+                <p>Levanta un nuevo ticket de soporte para el equipo de sistemas.</p>
+            </div>
 
-            <h2>Levantar Nuevo Reporte de Soporte</h2>
-            <p style={{ color: 'gray', marginBottom: '25px' }}>Ingresa los detalles del problema técnico.</p>
-
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Departamento:</label>
-                    <input 
-                        type="text" 
-                        placeholder="Ej. Recepción, Alimentos y Bebidas, Ama de llaves"
-                        value={departamento}
-                        onChange={(e) => setDepartamento(e.target.value)}
-                        required
-                        style={{ width: '100%', padding: '10px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '5px' }}
-                    />
-                </div>
-
-                <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Equipo Afectado:</label>
-                    <input 
-                        type="text" 
-                        placeholder="Ej. Impresora de tickets, Computadora central, Teléfono"
-                        value={equipoAfectado}
-                        onChange={(e) => setEquipoAfectado(e.target.value)}
-                        required
-                        style={{ width: '100%', padding: '10px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '5px' }}
-                    />
-                </div>
-
-                <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Descripción de la Falla:</label>
-                    <textarea 
-                        rows="4"
-                        placeholder="Describe detalladamente qué pasa con el equipo..."
-                        value={descripcion}
-                        onChange={(e) => setDescripcion(e.target.value)}
-                        required
-                        style={{ width: '100%', padding: '10px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '5px', resize: 'vertical' }}
-                    />
-                </div>
-
-                <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Prioridad / Urgencia:</label>
+            <form onSubmit={handleSubmit}>
+                <div className="form-group">
+                    <label>Departamento / Área Afectada</label>
                     <select 
-                        value={urgencia}
-                        onChange={(e) => setUrgencia(e.target.value)}
-                        style={{ width: '100%', padding: '10px', boxSizing: 'border-box', border: '1px solid #ccc', borderRadius: '5px' }}
+                        name="departamento" 
+                        className="form-control"
+                        value={formulario.departamento}
+                        onChange={handleChange}
+                        required
                     >
-                        <option value="Baja">Baja (No afecta la operación general)</option>
-                        <option value="Media">Media (Afecta parcialmente)</option>
-                        <option value="Alta">Alta (¡Bloquea la operación / Crítico!)</option>
+                        <option value="">Selecciona un departamento...</option>
+                        <option value="Alimentos y Bebidas">Alimentos y Bebidas</option>
+                        <option value="Recepción">Recepción</option>
+                        <option value="Ama de Llaves">Ama de Llaves</option>
+                        <option value="Mantenimiento">Mantenimiento</option>
+                        <option value="Recursos Humanos">Recursos Humanos</option>
+                        <option value="Sistemas">Sistemas</option>
                     </select>
                 </div>
 
-                <button 
-                    type="submit" 
-                    style={{ padding: '12px', backgroundColor: '#005b96', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', marginTop: '10px' }}>
-                    Enviar Reporte
-                </button>
-            </form>
+                <div className="form-group">
+                    <label>Equipo en Falla (Resumen)</label>
+                    <input 
+                        type="text" 
+                        name="equipo_afectado" 
+                        className="form-control"
+                        placeholder="Ej. Impresora HP, Terminal Punto de Venta, Router..."
+                        value={formulario.equipo_afectado}
+                        onChange={handleChange}
+                        required
+                        autoComplete="off"
+                    />
+                </div>
 
-            {mensaje && <p style={{ color: 'green', marginTop: '15px', fontWeight: 'bold', textAlign: 'center' }}>{mensaje}</p>}
-            {error && <p style={{ color: 'red', marginTop: '15px', textAlign: 'center' }}>{error}</p>}
+                <div className="form-group">
+                    <label>Prioridad</label>
+                    <select 
+                        name="urgencia" 
+                        className="form-control"
+                        value={formulario.urgencia}
+                        onChange={handleChange}
+                    >
+                        <option value="Baja">↓ Baja (Afectación menor)</option>
+                        <option value="Media">→ Media (Trabajo parcialmente afectado)</option>
+                        <option value="Alta">↑ Alta (Operación detenida)</option>
+                    </select>
+                </div>
+
+                <div className="form-group">
+                    <label>Descripción detallada</label>
+                    <textarea 
+                        name="descripcion" 
+                        className="form-control"
+                        placeholder="Describe el comportamiento del equipo, mensajes de error o cualquier detalle útil..."
+                        value={formulario.descripcion}
+                        onChange={handleChange}
+                        required
+                    ></textarea>
+                </div>
+
+                <div className="form-actions">
+                    <button type="submit" className="btn-primary" disabled={cargando}>
+                        {cargando ? 'Guardando...' : 'Crear ticket'}
+                    </button>
+                    <button type="button" className="btn-cancel" onClick={() => navigate('/dashboard')}>
+                        Cancelar
+                    </button>
+                </div>
+            </form>
         </div>
     );
-};
-
-export default NuevoReporte;
+}
