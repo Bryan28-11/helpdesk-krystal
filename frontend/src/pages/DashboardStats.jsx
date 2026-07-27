@@ -1,90 +1,171 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useNavigate } from 'react-router-dom';
+import './styles/DashboardStats.css';
 
 export default function DashboardStats() {
-    const [stats, setStats] = useState({ urgencia: [], departamento: [] });
+    const navigate = useNavigate();
+    const [reportes, setReportes] = useState([]);
     const [cargando, setCargando] = useState(true);
+    
+    // Nuevo estado para el filtro mensual (formato YYYY-MM)
+    const [mesFiltro, setMesFiltro] = useState(''); 
 
     useEffect(() => {
-        const obtenerEstadisticas = async () => {
+        const fetchReportes = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) return navigate('/');
+            
             try {
-                const token = localStorage.getItem('token'); // Recuperamos tu token de sesión
-                const respuesta = await fetch('https://helpdesk-krystal.onrender.com/api/reportes/dashboard/stats', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                const respuesta = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (respuesta.ok) {
                     const datos = await respuesta.json();
-                    setStats(datos);
+                    setReportes(datos);
                 }
             } catch (error) {
-                console.error("Error al conectar con el endpoint de estadísticas", error);
+                console.error('Error cargando estadísticas:', error);
             } finally {
                 setCargando(false);
             }
         };
+        fetchReportes();
+    }, [navigate]);
 
-        obtenerEstadisticas();
-    }, []);
+    if (cargando) return <div className="stats-container">Cargando métricas...</div>;
 
-    // Colores premium para la gráfica de urgencias
-    const COLORES = {
-        'Alta': '#EF4444',   // Rojo
-        'Media': '#F59E0B',  // Amarillo/Naranja
-        'Baja': '#10B981'    // Verde
-    };
+    // ==========================================
+    // 1. FILTRAMOS LOS REPORTES POR EL MES SELECCIONADO
+    // ==========================================
+    const reportesFiltrados = reportes.filter(r => {
+        if (!mesFiltro) return true; // Si no hay mes seleccionado, muestra el total histórico
+        
+        const fecha = new Date(r.fecha_creacion || r.fecha);
+        if (isNaN(fecha.getTime())) return false;
 
-    if (cargando) return <div className="text-center p-5 text-white">Cargando métricas del hotel...</div>;
+        const [year, month] = mesFiltro.split('-');
+        return fecha.getFullYear() === parseInt(year) && (fecha.getMonth() + 1) === parseInt(month);
+    });
+
+    // ==========================================
+    // 2. RECALCULAMOS LAS MATEMÁTICAS CON LOS FILTRADOS
+    // ==========================================
+    const total = reportesFiltrados.length;
+    const abiertos = reportesFiltrados.filter(r => r.estado === 'Abierto').length;
+    const enProceso = reportesFiltrados.filter(r => r.estado === 'En Proceso').length;
+    const resueltos = reportesFiltrados.filter(r => r.estado === 'Resuelto').length;
+
+    const prioridades = { Alta: 0, Media: 0, Baja: 0 };
+    reportesFiltrados.forEach(r => {
+        if (r.urgencia === 'Alta') prioridades.Alta++;
+        else if (r.urgencia === 'Media') prioridades.Media++;
+        else prioridades.Baja++; 
+    });
+
+    const departamentos = {};
+    reportesFiltrados.forEach(r => {
+        const dep = r.departamento || 'Sin asignar';
+        departamentos[dep] = (departamentos[dep] || 0) + 1;
+    });
+    const depOrdenados = Object.entries(departamentos).sort((a, b) => b[1] - a[1]);
+
+    const calcularAncho = (valor) => total === 0 ? 0 : (valor / total) * 100;
 
     return (
-        <div className="p-6 bg-gray-900 min-h-screen text-white">
-            <h1 className="text-3xl font-bold mb-8 text-center text-blue-400">Panel de Control Metas e Indicadores</h1>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Gráfica de Barras - Departamentos */}
-                <div className="bg-gray-850 p-6 rounded-xl shadow-lg border border-gray-700">
-                    <h2 className="text-xl font-semibold mb-4 text-center text-gray-300">Reportes por Departamento</h2>
-                    <div style={{ width: '100%', height: 300 }}>
-                        <ResponsiveContainer>
-                            <BarChart data={stats.departamento}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#4B5563" />
-                                <XAxis dataKey="departamento" stroke="#9CA3AF" />
-                                <YAxis stroke="#9CA3AF" allowDecimals={false} />
-                                <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#4B5563' }} />
-                                <Legend />
-                                <Bar dataKey="total" name="Tickets" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+        <div className="stats-container">
+            <div className="stats-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1>Métricas de Servicio (ITSM)</h1>
+                    <p>Indicadores clave de rendimiento de la mesa de ayuda del hotel.</p>
+                </div>
+                
+                {/* SELECTOR DE MES */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#fff', padding: '10px 16px', borderRadius: '8px', border: '1px solid #dfe1e6' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#172b4d' }}>Filtrar por Mes:</label>
+                    <input 
+                        type="month" 
+                        value={mesFiltro}
+                        onChange={(e) => setMesFiltro(e.target.value)}
+                        style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #dfe1e6', outline: 'none' }}
+                    />
+                    {mesFiltro && (
+                        <button 
+                            onClick={() => setMesFiltro('')}
+                            style={{ background: 'transparent', border: 'none', color: '#0052cc', cursor: 'pointer', fontSize: '13px', fontWeight: '500' }}
+                        >
+                            Limpiar
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* TARJETAS SUPERIORES */}
+            <div className="kpi-grid">
+                <div className="kpi-card blue">
+                    <div className="kpi-title">Total Incidentes</div>
+                    <div className="kpi-value">{total}</div>
+                </div>
+                <div className="kpi-card gray">
+                    <div className="kpi-title">Por Hacer (Abiertos)</div>
+                    <div className="kpi-value">{abiertos}</div>
+                </div>
+                <div className="kpi-card yellow">
+                    <div className="kpi-title">En Progreso</div>
+                    <div className="kpi-value">{enProceso}</div>
+                </div>
+                <div className="kpi-card green">
+                    <div className="kpi-title">Resueltos</div>
+                    <div className="kpi-value">{resueltos}</div>
+                </div>
+            </div>
+
+            <div className="charts-grid">
+                {/* PANEL DE PRIORIDADES */}
+                <div className="chart-panel">
+                    <h2 className="chart-title">Incidentes por Prioridad</h2>
+                    
+                    <div className="stat-row">
+                        <div className="stat-label" style={{ color: '#de350b' }}>↑ Alta</div>
+                        <div className="stat-bar-bg">
+                            <div className="stat-bar-fill" style={{ width: `${calcularAncho(prioridades.Alta)}%`, background: '#de350b' }}></div>
+                        </div>
+                        <div className="stat-count">{prioridades.Alta}</div>
+                    </div>
+                    
+                    <div className="stat-row">
+                        <div className="stat-label" style={{ color: '#ff8b00' }}>→ Media</div>
+                        <div className="stat-bar-bg">
+                            <div className="stat-bar-fill" style={{ width: `${calcularAncho(prioridades.Media)}%`, background: '#ff8b00' }}></div>
+                        </div>
+                        <div className="stat-count">{prioridades.Media}</div>
+                    </div>
+                    
+                    <div className="stat-row">
+                        <div className="stat-label" style={{ color: '#006644' }}>↓ Baja</div>
+                        <div className="stat-bar-bg">
+                            <div className="stat-bar-fill" style={{ width: `${calcularAncho(prioridades.Baja)}%`, background: '#006644' }}></div>
+                        </div>
+                        <div className="stat-count">{prioridades.Baja}</div>
                     </div>
                 </div>
 
-                {/* Gráfica de Dona - Urgencia */}
-                <div className="bg-gray-850 p-6 rounded-xl shadow-lg border border-gray-700">
-                    <h2 className="text-xl font-semibold mb-4 text-center text-gray-300">Distribución por Prioridad</h2>
-                    <div style={{ width: '100%', height: 300 }}>
-                        <ResponsiveContainer>
-                            <PieChart>
-                                <Pie
-                                    data={stats.urgencia}
-                                    dataKey="total"
-                                    nameKey="urgencia"
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={90}
-                                    paddingAngle={5}
-                                    label
-                                >
-                                    {stats.urgencia.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORES[entry.urgencia] || '#6B7280'} />
-                                    ))}
-                                </Pie>
-                                <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#4B5563' }} />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
+                {/* PANEL DE DEPARTAMENTOS */}
+                <div className="chart-panel">
+                    <h2 className="chart-title">Carga por Departamento</h2>
+                    
+                    {depOrdenados.length === 0 ? (
+                        <p style={{ color: '#6b778c', fontSize: '13px' }}>No hay datos suficientes para este mes.</p>
+                    ) : (
+                        depOrdenados.map(([nombre, cantidad], index) => (
+                            <div className="stat-row" key={index}>
+                                <div className="stat-label" title={nombre}>{nombre}</div>
+                                <div className="stat-bar-bg">
+                                    <div className="stat-bar-fill" style={{ width: `${calcularAncho(cantidad)}%`, background: '#0052cc' }}></div>
+                                </div>
+                                <div className="stat-count">{cantidad}</div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
         </div>

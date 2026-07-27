@@ -1,48 +1,119 @@
-/* Contenedor principal */
-.login-container {
-    padding: 50px;
-    max-width: 400px;
-    margin: 0 auto;
-    text-align: center;
-    font-family: sans-serif;
+/* src/pages/styles/Login.css */
+.login-wrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100vw;
+  background-color: var(--white);
 }
 
-.login-subtitle {
-    color: gray;
-    margin-bottom: 20px;
+/* MITAD IZQUIERDA: Marca corporativa */
+.login-left {
+  flex: 1;
+  background: linear-gradient(135deg, #0c2a6b 0%, #123a8f 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: white;
 }
 
-/* Formulario */
-.login-form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+.login-left-logo {
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+}
+
+.login-left-text {
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+/* MITAD DERECHA: Formulario */
+.login-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--white);
+}
+
+.login-box {
+  width: 100%;
+  max-width: 380px;
+  padding: 40px;
+}
+
+.login-box h2 {
+  font-size: 24px;
+  color: var(--text-dark);
+  margin-bottom: 8px;
+}
+
+.login-box p {
+  color: var(--text-light);
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+
+.login-form-group {
+  margin-bottom: 20px;
+}
+
+.login-form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-light);
+  margin-bottom: 8px;
 }
 
 .login-input {
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--text-dark);
+  background: #fafbfc;
+  border: 2px solid #dfe1e6;
+  border-radius: 4px;
+  outline: none;
+  transition: background 0.2s, border-color 0.2s;
 }
 
-.login-button {
-    padding: 12px;
-    background-color: #005b96; /* Azul Krystal */
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-    margin-top: 10px;
+.login-input:focus {
+  background: #ffffff;
+  border-color: #0052cc;
 }
 
-.login-button:hover {
-    background-color: #004675;
+.btn-login {
+  width: 100%;
+  background: #0052cc;
+  color: white;
+  border: none;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: background 0.2s;
 }
 
-/* Mensajes de error */
-.login-error {
-    color: red;
-    margin-top: 15px;
-    font-size: 14px;
+.btn-login:hover {
+  background: #0747a6;
+}
+
+/* Responsividad para celulares */
+@media(max-width: 768px) {
+  .login-wrapper {
+    flex-direction: column;
+  }
+  .login-left {
+    padding: 60px 20px;
+  }
 }

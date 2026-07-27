@@ -1,77 +1,35 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './styles/Login.css';
-
-const Login = () => {
-    // Estas variables guardarán lo que el usuario escriba
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    
-    // Esta herramienta nos permite cambiar de página
-    const navigate = useNavigate();
-
-    // Función que se ejecuta al presionar "Entrar"
-    const handleSubmit = async (e) => {
-        e.preventDefault(); // Evita que la página se recargue
-        setError(''); // Limpiamos errores anteriores
+const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setCargando(true);
 
         try {
-            // Hacemos la petición a nuestra API (Backend)
-            const response = await fetch('https://helpdesk-krystal.onrender.com/api/auth/login', {
+            const respuesta = await fetch('https://helpdesk-krystal.onrender.com/api/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify(credenciales)
             });
 
-            const data = await response.json();
-
-            if (response.ok) {
-                // Si la contraseña es correcta, guardamos el Token en el navegador
-                localStorage.setItem('token', data.token);
-                // Redirigimos al usuario al panel de reportes
+            if (respuesta.ok) {
+                const datos = await respuesta.json();
+                
+                // GUARDAMOS EL TOKEN Y LOS DATOS DEL USUARIO
+                localStorage.setItem('token', datos.token);
+                localStorage.setItem('nombre', datos.usuario.nombre);
+                localStorage.setItem('departamento', datos.usuario.departamento);
+                localStorage.setItem('rol', datos.usuario.rol);
+                
+                // Redirigimos al panel principal
                 navigate('/dashboard');
             } else {
-                // Si hay error (contraseña incorrecta, usuario no existe)
-                setError(data.error);
+                const errorData = await respuesta.json();
+                setError(errorData.error || 'Credenciales incorrectas.');
             }
-        } catch (err) {
-            setError('Error al conectar con el servidor. Revisa que el backend esté encendido.');
+        } catch (error) {
+            setError('Error de conexión con el servidor.');
+        } finally {
+            setCargando(false);
         }
     };
-
-   return (
-        <div className="login-container">
-            <h2>Helpdesk Krystal Grand</h2>
-            <p className="login-subtitle">Inicia sesión en tu cuenta</p>
-            
-            <form onSubmit={handleSubmit} className="login-form">
-                <input 
-                    type="email" 
-                    placeholder="Correo electrónico" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="login-input"
-                />
-                <input 
-                    type="password" 
-                    placeholder="Contraseña" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="login-input"
-                />
-                <button type="submit" className="login-button">
-                    Entrar
-                </button>
-            </form>
-
-            {error && <p className="login-error">{error}</p>}
-        </div>
-    );
-};
-
-export default Login;
