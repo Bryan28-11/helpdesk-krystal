@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard';
 import NuevoReporte from './pages/NuevoReporte';
 import DetalleReporte from './pages/DetalleReporte';
 import DashboardStats from "./pages/DashboardStats";
+import NuevoUsuario from './pages/NuevoUsuario';
+import ListaUsuarios from './pages/ListaUsuarios';
 import Layout from './components/Layout'; // <-- Aquí llamamos al Layout
 
 function App() {
@@ -17,6 +19,8 @@ function App() {
         <Route path="/nuevo-reporte" element={<Layout><NuevoReporte /></Layout>} />
         <Route path="/reporte/:id" element={<Layout><DetalleReporte /></Layout>} />
         <Route path="/estadisticas" element={<Layout><DashboardStats /></Layout>} />
+        <Route path="/nuevo-usuario" element={<Layout><NuevoUsuario /></Layout>} />
+        <Route path="/usuarios" element={<Layout><ListaUsuarios /></Layout>} />
       </Routes>
     </BrowserRouter>
   );

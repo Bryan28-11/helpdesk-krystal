@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable'; // <-- Importamos la función directamente  
+import autoTable from 'jspdf-autotable';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './styles/Dashboard.css';
@@ -7,13 +7,13 @@ import './styles/Dashboard.css';
 export default function Dashboard() {
     const [reportes, setReportes] = useState([]);
     
-    // Estados para los filtros
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState('Todos');
     const [fechaInicio, setFechaInicio] = useState('');
     const [fechaFin, setFechaFin] = useState('');
     
     const navigate = useNavigate();
+    const rolUsuario = localStorage.getItem('rol'); // Verificamos el rol para mostrar botones ocultos
 
     useEffect(() => {
         const fetchReportes = async () => {
@@ -35,13 +35,18 @@ export default function Dashboard() {
     }, [navigate]);
 
     const renderPrioridad = (urgencia) => {
-        if (urgencia === 'Alta') return <span style={{ color: '#de350b', fontWeight: 'bold' }}>↑ Alta</span>;
-        if (urgencia === 'Media') return <span style={{ color: '#ff8b00', fontWeight: 'bold' }}>→ Media</span>;
-        if (urgencia === 'Baja') return <span style={{ color: '#006644', fontWeight: 'bold' }}>↓ Baja</span>;
-        return <span style={{ color: '#42526e' }}>{urgencia || 'No asignada'}</span>;
+        if (urgencia === 'Alta') return <span className="prioridad-alta">↑ Alta</span>;
+        if (urgencia === 'Media') return <span className="prioridad-media">→ Media</span>;
+        if (urgencia === 'Baja') return <span className="prioridad-baja">↓ Baja</span>;
+        return <span className="prioridad-nula">{urgencia || 'No asignada'}</span>;
     };
 
-    // Función que faltaba para darle formato a la fecha
+    const obtenerClaseEstado = (estado) => {
+        if (estado === 'Resuelto') return 'status-chip status-resuelto';
+        if (estado === 'En Proceso') return 'status-chip status-en-proceso';
+        return 'status-chip status-abierto';
+    };
+
     const formatearFecha = (fechaString) => {
         if (!fechaString) return '---';
         const fechaObj = new Date(fechaString);
@@ -52,9 +57,6 @@ export default function Dashboard() {
         });
     };
 
-    // ==========================================
-    // CEREBRO DE LOS FILTROS
-    // ==========================================
     const reportesFiltrados = reportes.filter(reporte => {
         const coincideBusqueda = reporte.equipo_afectado.toLowerCase().includes(busqueda.toLowerCase()) || 
                                  reporte.departamento.toLowerCase().includes(busqueda.toLowerCase());
@@ -78,19 +80,14 @@ export default function Dashboard() {
         return coincideBusqueda && coincideEstado && coincideFecha;
     });
 
-    // ==========================================
-    // FUNCIÓN PARA EXPORTAR A PDF
-    // ==========================================
     const exportarPDF = () => {
         const doc = new jsPDF();
         
-        // Título del documento
         doc.setFontSize(16);
         doc.text("Reporte de Incidentes - ITSM Krystal Grand", 14, 15);
         doc.setFontSize(10);
         doc.text(`Generado el: ${new Date().toLocaleDateString('es-MX')}`, 14, 22);
         
-        // Estructura de la tabla
         const columnas = ["Clave", "Fecha", "Equipo", "Departamento", "Prioridad", "Estado"];
         const filas = [];
 
@@ -106,36 +103,44 @@ export default function Dashboard() {
             filas.push(datosFila);
         });
 
-        // Dibujar la tabla en el PDF usando la función importada
         autoTable(doc, {
             head: [columnas],
             body: filas,
             startY: 28,
             theme: 'striped',
-            headStyles: { fillColor: [0, 82, 204] } // Azul corporativo
+            headStyles: { fillColor: [0, 82, 204] } 
         });
 
-        // Descargar el archivo
         doc.save(`Reporte_Sistemas_${new Date().getTime()}.pdf`);
     };
 
     return (
         <div className="dashboard-content">
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button 
-                        className="btn-primary" 
-                        style={{ background: '#006644' }} 
-                        onClick={exportarPDF}
-                    >
-                        📄 Descargar PDF
-                    </button>
-                    <button className="btn-primary" onClick={() => navigate('/nuevo-reporte')}>
-                        + Crear Incidente
-                    </button>
-                </div>
+            {/* BOTONES PRINCIPALES */}
+            <div className="dashboard-header-actions" style={{ marginBottom: '20px', justifyContent: 'flex-end' }}>
+                <button className="btn-primary btn-success" onClick={exportarPDF}>
+                    📄 Descargar PDF
+                </button>
+                
+               {/* BOTONES PROTEGIDOS: Solo los ve el administrador (Sistemas) */}
+                {rolUsuario === 'admin' && (
+                    <>
+                        <button className="btn-secondary" onClick={() => navigate('/usuarios')}>
+                            👥 Ver Usuarios
+                        </button>
+                        <button className="btn-secondary" onClick={() => navigate('/nuevo-usuario')}>
+                            👤 Crear Usuario
+                        </button>
+                    </>
+                )}
+                
+                <button className="btn-primary" onClick={() => navigate('/nuevo-reporte')}>
+                    + Crear Incidente
+                </button>
+            </div>
 
             {/* CONTROLES DE BÚSQUEDA Y FILTROS */}
-            <div className="dashboard-controls" style={{ flexWrap: 'wrap' }}>
+            <div className="dashboard-controls">
                 <input 
                     type="text" 
                     className="search-input" 
@@ -155,8 +160,8 @@ export default function Dashboard() {
                     <option value="Resuelto">Resueltos</option>
                 </select>
 
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto' }}>
-                    <span style={{ fontSize: '13px', color: '#6b778c', fontWeight: '700' }}>Desde:</span>
+                <div className="filter-date-group filter-date-left">
+                    <span className="filter-label">Desde:</span>
                     <input 
                         type="date" 
                         className="filter-select" 
@@ -164,8 +169,8 @@ export default function Dashboard() {
                         onChange={(e) => setFechaInicio(e.target.value)} 
                     />
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', color: '#6b778c', fontWeight: '700' }}>Hasta:</span>
+                <div className="filter-date-group">
+                    <span className="filter-label">Hasta:</span>
                     <input 
                         type="date" 
                         className="filter-select" 
@@ -193,19 +198,14 @@ export default function Dashboard() {
                         {reportesFiltrados.length > 0 ? (
                             reportesFiltrados.map((reporte) => (
                                 <tr key={reporte.id} onClick={() => navigate(`/reporte/${reporte.id}`)}>
-                                    <td style={{ color: '#0052cc', fontWeight: '600' }}>ITSM-{reporte.id}</td>
-                                    <td style={{ fontSize: '13px', color: '#6b778c' }}>
-                                        {formatearFecha(reporte.fecha_reporte)}
-                                    </td>
-                                    <td style={{ fontWeight: '500' }}>{reporte.equipo_afectado}</td>
+                                    <td className="td-clave">ITSM-{reporte.id}</td>
+                                    <td className="td-fecha">{formatearFecha(reporte.fecha_reporte)}</td>
+                                    <td className="td-resumen">{reporte.equipo_afectado}</td>
                                     <td>{reporte.departamento}</td>
                                     <td>{renderPrioridad(reporte.urgencia)}</td>
                                     <td>{reporte.reportado_por}</td>
                                     <td>
-                                        <span className="status-chip" style={{ 
-                                            background: reporte.estado === 'Resuelto' ? '#e3fcef' : (reporte.estado === 'En Proceso' ? '#ffab00' : '#dfe1e6'),
-                                            color: reporte.estado === 'Resuelto' ? '#006644' : (reporte.estado === 'En Proceso' ? '#172b4d' : '#42526e')
-                                        }}>
+                                        <span className={obtenerClaseEstado(reporte.estado)}>
                                             {reporte.estado.toUpperCase()}
                                         </span>
                                     </td>
@@ -213,7 +213,7 @@ export default function Dashboard() {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: '#6b778c' }}>
+                                <td colSpan="7" className="td-empty">
                                     No se encontraron incidentes en este periodo o con estos filtros.
                                 </td>
                             </tr>

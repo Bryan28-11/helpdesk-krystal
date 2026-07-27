@@ -1,51 +1,35 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const verificarToken = require('../middleware/auth'); 
 
-// 1. OBTENER LOS COMENTARIOS DE UN TICKET (GET /api/comentarios/:reporte_id)
-router.get('/:reporte_id', verificarToken, (req, res) => {
-    const { reporte_id } = req.params;
-    
-    // Usamos el nombre exacto de tu columna 'fecha' para ordenarlos del más viejo al más nuevo
-    const query = 'SELECT * FROM comentarios WHERE reporte_id = ? ORDER BY fecha ASC';
-
-    db.query(query, [reporte_id], (err, results) => {
+// OBTENER TODOS LOS COMENTARIOS DE UN TICKET
+router.get('/:reporteId', (req, res) => {
+    const sql = 'SELECT * FROM comentarios WHERE reporte_id = ? ORDER BY fecha ASC';
+    db.query(sql, [req.params.reporteId], (err, resultados) => {
         if (err) {
-            console.error('Error al obtener comentarios:', err);
-            return res.status(500).json({ error: 'Error al cargar el historial de notas' });
+            console.error('Error al obtener bitácora:', err);
+            return res.status(500).json({ error: 'Error del servidor' });
         }
-        res.json(results);
+        res.json(resultados);
     });
 });
 
-// 2. CREAR UN NUEVO COMENTARIO (POST /api/comentarios/:reporte_id)
-router.post('/:reporte_id', verificarToken, (req, res) => {
-    const { reporte_id } = req.params;
-    const { comentario } = req.body; // El texto que escribas en React
+// AGREGAR UN NUEVO COMENTARIO CON EVIDENCIA
+router.post('/', (req, res) => {
+    // Ajustado para recibir "autor" y "rol" como en tu base de datos
+    const { reporte_id, autor, rol, comentario, evidencia } = req.body;
 
-    // Extraemos quién eres directamente de tu inicio de sesión
-    const autor = req.usuario.nombre || req.usuario.email || 'Usuario Desconocido';
-    const rol = req.usuario.rol || 'Usuario';
+    if (!reporte_id || !comentario) {
+        return res.status(400).json({ error: 'Faltan datos obligatorios' });
+    }
 
-    // Insertamos respetando las columnas exactas de tu tabla
-    const query = 'INSERT INTO comentarios (reporte_id, autor, rol, comentario) VALUES (?, ?, ?, ?)';
-
-    db.query(query, [reporte_id, autor, rol, comentario], (err, results) => {
+    const sql = 'INSERT INTO comentarios (reporte_id, autor, rol, comentario, evidencia) VALUES (?, ?, ?, ?, ?)';
+    db.query(sql, [reporte_id, autor, rol || 'admin', comentario, evidencia || null], (err, result) => {
         if (err) {
             console.error('Error al guardar comentario:', err);
-            return res.status(500).json({ error: 'Error al guardar en la base de datos' });
+            return res.status(500).json({ error: 'Error al guardar en BD' });
         }
-        
-        // Devolvemos los datos para que React los pinte instantáneamente en pantalla
-        res.status(201).json({ 
-            mensaje: 'Comentario guardado exitosamente', 
-            id: results.insertId,
-            autor,
-            rol,
-            comentario,
-            fecha: new Date()
-        });
+        res.status(201).json({ mensaje: 'Bitácora actualizada exitosamente' });
     });
 });
 

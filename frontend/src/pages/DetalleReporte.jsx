@@ -1,269 +1,227 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import './styles/DetalleReporte.css';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import './styles/Dashboard.css'; // Usaremos los estilos de aquí
 
-export default function DetalleReporte() {
+export default function ReporteDetalle() {
     const { id } = useParams();
     const navigate = useNavigate();
     
-    // Estados del ticket
     const [reporte, setReporte] = useState(null);
-    const [estadoActual, setEstadoActual] = useState('');
-    const [cargando, setCargando] = useState(true);
-
-    // Nuevos estados para los comentarios
     const [comentarios, setComentarios] = useState([]);
     const [nuevoComentario, setNuevoComentario] = useState('');
-    const [enviandoComentario, setEnviandoComentario] = useState(false);
+    const [evidencia, setEvidencia] = useState(null); // Aquí guardaremos la foto en Base64
+    const [enviando, setEnviando] = useState(false);
+
+    const rolUsuario = localStorage.getItem('rol'); 
+    const nombreUsuario = localStorage.getItem('nombre');
+
+    const cargarDatos = async () => {
+        const token = localStorage.getItem('token');
+        try {
+            // 1. Cargar el ticket
+            const resTicket = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (resTicket.ok) {
+                const datos = await resTicket.json();
+                setReporte(datos.find(r => r.id === parseInt(id)));
+            }
+
+            // 2. Cargar los comentarios
+            const resComentarios = await fetch(`https://helpdesk-krystal.onrender.com/api/comentarios/${id}`);
+            if (resComentarios.ok) {
+                const datosComentarios = await resComentarios.json();
+                setComentarios(datosComentarios);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    };
 
     useEffect(() => {
-        const cargarDatos = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                
-                // 1. Traer los detalles del ticket
-                const resReportes = await fetch('https://helpdesk-krystal.onrender.com/api/reportes', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (resReportes.ok) {
-                    const datos = await resReportes.json();
-                    const ticket = datos.find(r => String(r.id) === String(id));
-                    setReporte(ticket);
-                    setEstadoActual(ticket?.estado || 'Abierto');
-                }
-
-                // 2. Traer el historial de comentarios
-                const resComentarios = await fetch(`https://helpdesk-krystal.onrender.com/api/comentarios/${id}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (resComentarios.ok) {
-                    const historial = await resComentarios.json();
-                    setComentarios(historial);
-                }
-
-            } catch (error) {
-                console.error("Error al obtener los detalles:", error);
-            } finally {
-                setCargando(false);
-            }
-        };
         cargarDatos();
     }, [id]);
 
-    // Función para cambiar de Abierto a Resuelto
     const cambiarEstado = async (nuevoEstado) => {
-        setEstadoActual(nuevoEstado); 
+        const token = localStorage.getItem('token');
         try {
-            const token = localStorage.getItem('token');
             await fetch(`https://helpdesk-krystal.onrender.com/api/reportes/${id}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ estado: nuevoEstado })
             });
+            setReporte({ ...reporte, estado: nuevoEstado });
         } catch (error) {
-            console.error("Error al actualizar:", error);
+            console.error('Error al cambiar estado:', error);
         }
     };
 
-    // Función para enviar un nuevo comentario
-    const agregarComentario = async (e) => {
-        e.preventDefault();
-        if (!nuevoComentario.trim()) return; // No enviar si está vacío
-        
-        setEnviandoComentario(true);
-        try {
-            const token = localStorage.getItem('token');
-            const respuesta = await fetch(`https://helpdesk-krystal.onrender.com/api/comentarios/${id}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ comentario: nuevoComentario })
-            });
+    // FUNCIÓN MAGICA PARA CONVERTIR IMAGEN A TEXTO BASE64
+    const manejarSubidaImagen = (e) => {
+        const archivo = e.target.files[0];
+        if (archivo) {
+            const lector = new FileReader();
+            lector.onloadend = () => {
+                setEvidencia(lector.result); // Guardamos la imagen codificada
+            };
+            lector.readAsDataURL(archivo);
+        }
+    };
 
-            if (respuesta.ok) {
-                const data = await respuesta.json();
-                
-                // Truco de magia: Agregamos el comentario nuevo a la lista actual para que se vea instantáneo
-                const comentarioFresco = {
-                    id: data.id,
-                    autor: data.autor,
-                    rol: data.rol,
-                    comentario: data.comentario,
-                    fecha: data.fecha
-                };
-                
-                setComentarios([...comentarios, comentarioFresco]);
-                setNuevoComentario(''); // Limpiamos la caja de texto
+    const enviarComentario = async (e) => {
+            e.preventDefault();
+            setEnviando(true);
+            try {
+                const res = await fetch('https://helpdesk-krystal.onrender.com/api/comentarios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reporte_id: id,
+                        autor: nombreUsuario, // <-- Cambiado de usuario_nombre a autor
+                        rol: rolUsuario,      // <-- Agregamos el rol
+                        comentario: nuevoComentario,
+                        evidencia: evidencia
+                    })
+                });
+
+            if (res.ok) {
+                setNuevoComentario('');
+                setEvidencia(null);
+                // Reseteamos el input file
+                document.getElementById('input-evidencia').value = ""; 
+                cargarDatos(); // Recargamos el historial
             }
         } catch (error) {
-            console.error("Error al enviar comentario:", error);
+            console.error('Error al enviar:', error);
         } finally {
-            setEnviandoComentario(false);
+            setEnviando(false);
         }
     };
 
-    if (cargando) return <div>Cargando expediente...</div>;
-    if (!reporte) return <div>Reporte no encontrado.</div>;
+    const descargarTicketPDF = () => {
+        const doc = new jsPDF();
+        doc.setFontSize(18);
+        doc.setTextColor(0, 82, 204);
+        doc.text(`Orden de Trabajo - ITSM-${reporte.id}`, 14, 20);
+        doc.setFontSize(12);
+        doc.setTextColor(23, 43, 77);
+        doc.text(`Generado el: ${new Date().toLocaleDateString('es-MX')}`, 14, 28);
+        
+        autoTable(doc, {
+            startY: 35,
+            theme: 'grid',
+            headStyles: { fillColor: [244, 245, 247], textColor: [23, 43, 77] },
+            body: [
+                ['Dispositivo Afectado', reporte.equipo_afectado],
+                ['Departamento', reporte.departamento],
+                ['Reportado por', reporte.reportado_por],
+                ['Prioridad', reporte.urgencia],
+                ['Estado Actual', reporte.estado],
+                ['Falla Reportada', reporte.descripcion]
+            ]
+        });
+        doc.save(`Ticket_ITSM_${reporte.id}.pdf`);
+    };
+
+    if (!reporte) return <div style={{ padding: '40px', textAlign: 'center' }}>Cargando ticket...</div>;
 
     return (
-        <div className="jira-container">
-            <div className="main-wrap">
+        <div className="dashboard-content" style={{ maxWidth: '800px', margin: '40px auto' }}>
+            <div className="table-container" style={{ padding: '32px' }}>
                 
-                {/* ===================== CENTER CONTENT ===================== */}
-                <div className="content">
-                    <div className="breadcrumb-row">
-                        <span className="issue-key">ITSM-{reporte.id}</span>
-                        <a className="return-link" onClick={() => navigate('/dashboard')}>Regresar a la cola</a>
+                {/* ENCABEZADO DEL TICKET */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                    <div>
+                        <h2 style={{ color: '#172b4d', margin: 0 }}>Ticket ITSM-{reporte.id}</h2>
+                        <p style={{ color: '#6b778c', margin: '8px 0 0 0' }}>{reporte.equipo_afectado} - {reporte.departamento}</p>
                     </div>
-
-                    <h1 className="issue-title">Falla en {reporte.equipo_afectado}</h1>
-
-                    <div className="action-row">
-                        <button className="btn">✎ Editar</button>
-                        <button className="btn" onClick={() => document.getElementById('caja-comentario').focus()}>💬 Comentar</button>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button className="btn-primary btn-success" onClick={descargarTicketPDF}>
+                            📄 Descargar Ticket PDF
+                        </button>
+                        <button className="btn-secondary" onClick={() => navigate('/dashboard')}>
+                            Volver
+                        </button>
                     </div>
+                </div>
 
-                    <div className="field-grid">
-                        <div className="field">
-                            <label>Type</label>
-                            <div className="value">
-                                <span className="type-icon">■</span>
-                                Incident
-                            </div>
-                        </div>
-                        
-                        <div className="field">
-                            <label>Status</label>
-                            <select 
-                                className="status-chip"
-                                value={estadoActual}
-                                onChange={(e) => cambiarEstado(e.target.value)}
-                                style={{ 
-                                    background: estadoActual === 'Resuelto' ? '#e3fcef' : (estadoActual === 'En Proceso' ? '#ffab00' : '#dfe1e6'),
-                                    color: estadoActual === 'Resuelto' ? '#006644' : (estadoActual === 'En Proceso' ? '#172b4d' : '#42526e')
-                                }}
-                            >
-                                <option value="Abierto">POR HACER</option>
-                                <option value="En Proceso">EN PROCESO</option>
-                                <option value="Resuelto">RESUELTO</option>
-                            </select>
-                        </div>
+                <div style={{ background: '#fafbfc', padding: '20px', borderRadius: '4px', border: '1px solid #dfe1e6', marginBottom: '24px' }}>
+                    <h4 style={{ margin: '0 0 12px 0', color: '#42526e' }}>Descripción de la Falla</h4>
+                    <p style={{ margin: 0, color: '#172b4d', lineHeight: '1.6' }}>{reporte.descripcion}</p>
+                </div>
 
-                        <div className="field">
-                            <label>Priority</label>
-                            <div className="value"><span className="priority-icon">↑</span> {reporte.urgencia || 'Alta'}</div>
-                        </div>
-                        
-                        <div className="field">
-                            <label>Component/s</label>
-                            <div className="value"><a>{reporte.departamento}</a></div>
-                        </div>
-                    </div>
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'center', paddingBottom: '24px', borderBottom: '2px solid #dfe1e6', marginBottom: '24px' }}>
+                    <span style={{ fontWeight: '600', color: '#42526e' }}>Estado del Ticket:</span>
+                    {rolUsuario === 'admin' ? (
+                        <select className="filter-select" value={reporte.estado} onChange={(e) => cambiarEstado(e.target.value)}>
+                            <option value="Abierto">Abierto (Por Hacer)</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="Resuelto">Resuelto</option>
+                        </select>
+                    ) : (
+                        <span className="status-chip" style={{ 
+                            background: reporte.estado === 'Resuelto' ? '#e3fcef' : '#dfe1e6',
+                            color: reporte.estado === 'Resuelto' ? '#006644' : '#42526e'
+                        }}>
+                            {reporte.estado.toUpperCase()}
+                        </span>
+                    )}
+                </div>
 
-                    <div className="section">
-                        <div className="section-heading"><h2>Description</h2></div>
-                        <p className="description-text">{reporte.descripcion}</p>
-                    </div>
-
-                    {/* ===================== ACTIVITY / COMMENTS ===================== */}
-                    <div className="section">
-                        <div className="section-heading" style={{ borderBottom: 'none', marginBottom: '6px' }}>
-                            <h2>Activity</h2>
-                        </div>
-                        
-                        <div className="tabs">
-                            <div className="tab">All</div>
-                            <div className="tab active">Comments</div>
-                            <div className="tab">History</div>
-                        </div>
-
-                        {/* Caja para escribir el nuevo comentario */}
-                        <div style={{ marginBottom: '24px' }}>
-                            <form onSubmit={agregarComentario}>
-                                <textarea 
-                                    id="caja-comentario"
-                                    placeholder="Escribe un comentario o actualización..."
-                                    value={nuevoComentario}
-                                    onChange={(e) => setNuevoComentario(e.target.value)}
-                                    required
-                                    style={{ 
-                                        width: '100%', minHeight: '70px', padding: '10px', 
-                                        borderRadius: '3px', border: '1px solid #dfe1e6', 
-                                        marginBottom: '8px', outline: 'none', fontFamily: 'inherit',
-                                        background: '#fafbfc'
-                                    }}
-                                />
-                                <button 
-                                    type="submit" 
-                                    disabled={enviandoComentario}
-                                    style={{
-                                        background: '#0052cc', color: '#fff', border: 'none',
-                                        padding: '6px 12px', borderRadius: '3px', fontWeight: '500',
-                                        cursor: enviandoComentario ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    {enviandoComentario ? 'Guardando...' : 'Guardar'}
-                                </button>
-                            </form>
-                        </div>
-
-                        {/* Lista dinámica de comentarios */}
-                        {comentarios.length === 0 ? (
-                            <p style={{ fontSize: '14px', color: '#6b778c' }}>Aún no hay comentarios en este ticket.</p>
-                        ) : (
-                            comentarios.map((c, index) => (
-                                <div className="comment" key={c.id || index}>
-                                    {/* Si el rol es Administrador o Sistemas lo pintamos de azul, si es usuario de rojo */}
-                                    <div className={`avatar ${c.rol === 'admin' ? 'blue' : 'rose'}`}></div>
-                                    <div className="comment-body">
-                                        <div className="comment-meta">
-                                            <span className="author">{c.autor}</span>
-                                            <span className="action-text"> añadió un comentario - </span>
-                                            <span className="time">
-                                                {new Date(c.fecha).toLocaleString('es-MX', { 
-                                                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' 
-                                                })}
-                                            </span>
-                                        </div>
-                                        <div className="comment-text" style={{ whiteSpace: 'pre-wrap' }}>
-                                            {c.comentario}
-                                        </div>
+                {/* ==========================================
+                    ZONA DE BITÁCORA Y EVIDENCIAS
+                    ========================================== */}
+                <h3 style={{ color: '#172b4d', marginBottom: '16px' }}>Bitácora de Sistemas</h3>
+                
+                    <div className="comentarios-lista">
+                                        {comentarios.length === 0 ? (
+                                            <p style={{ color: '#6b778c', fontStyle: 'italic' }}>No hay actualizaciones en la bitácora aún.</p>
+                                        ) : (
+                                            comentarios.map(com => (
+                                                <div key={com.id} className="comentario-burbuja">
+                                                    <div className="comentario-header">
+                                                        {/* Cambiamos com.usuario_nombre por com.autor */}
+                                                        <strong>{com.autor} ({com.rol})</strong> 
+                                                        <span>{new Date(com.fecha).toLocaleString('es-MX')}</span>
+                                                    </div>
+                                                    <p>{com.comentario}</p>
+                                                    {com.evidencia && (
+                                                        <div className="comentario-evidencia">
+                                                            <img src={com.evidencia} alt="Evidencia del sistema" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
-                                </div>
-                            ))
-                        )}
-                        
-                    </div>
-                </div>
 
-                {/* ===================== RIGHT PANEL ===================== */}
-                <div className="right-panel">
-                    <div className="people-grid">
-                        <div className="people-row">
-                            <div className="p-label">Assignee:</div>
-                            <div className="p-value">
-                                <div className="avatar blue"></div>
-                                <span className="p-name">Sistemas</span>
-                            </div>
+                {/* FORMULARIO SOLO PARA ADMIN */}
+                {rolUsuario === 'admin' && (
+                    <form onSubmit={enviarComentario} className="comentario-form">
+                        <textarea 
+                            className="search-input" 
+                            style={{ width: '100%', minHeight: '80px', marginBottom: '12px' }}
+                            placeholder="Añadir nota técnica o actualización..."
+                            value={nuevoComentario}
+                            onChange={(e) => setNuevoComentario(e.target.value)}
+                            required
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <input 
+                                type="file" 
+                                id="input-evidencia"
+                                accept="image/*" 
+                                onChange={manejarSubidaImagen} 
+                                style={{ fontSize: '13px' }}
+                            />
+                            <button type="submit" className="btn-primary" disabled={enviando}>
+                                {enviando ? 'Guardando...' : 'Guardar en Bitácora'}
+                            </button>
                         </div>
-
-                        <div className="people-row">
-                            <div className="p-label">Reporter:</div>
-                            <div className="p-value">
-                                <div className="avatar rose"></div>
-                                <span className="p-name">{reporte.reportado_por}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+                    </form>
+                )}
             </div>
         </div>
     );
