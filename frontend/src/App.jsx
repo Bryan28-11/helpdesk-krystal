@@ -6,6 +6,7 @@ import DetalleReporte from './pages/DetalleReporte';
 import DashboardStats from "./pages/DashboardStats";
 import NuevoUsuario from './pages/NuevoUsuario';
 import ListaUsuarios from './pages/ListaUsuarios';
+import logoHotel from "./assets/Logo-1.png";
 import Layout from './components/Layout'; // <-- Aquí llamamos al Layout
 
 function App() {

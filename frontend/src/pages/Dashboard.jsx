@@ -13,7 +13,7 @@ export default function Dashboard() {
     const [fechaFin, setFechaFin] = useState('');
     
     const navigate = useNavigate();
-    const rolUsuario = localStorage.getItem('rol'); // Verificamos el rol para mostrar botones ocultos
+    const rolUsuario = localStorage.getItem('rol');
 
     useEffect(() => {
         const fetchReportes = async () => {
@@ -83,12 +83,31 @@ export default function Dashboard() {
     const exportarPDF = () => {
         const doc = new jsPDF();
         
-        doc.setFontSize(16);
-        doc.text("Reporte de Incidentes - ITSM Krystal Grand", 14, 15);
-        doc.setFontSize(10);
-        doc.text(`Generado el: ${new Date().toLocaleDateString('es-MX')}`, 14, 22);
+        // 1. FRANJA DE ENCABEZADO CORPORATIVA (Azul Krystal Grand)
+        doc.setFillColor(0, 82, 204); 
+        doc.rect(0, 0, 210, 25, 'F'); 
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(15);
+        doc.setFont("helvetica", "bold");
+        doc.text("KRYSTAL GRAND NUEVO VALLARTA", 14, 16);
         
-        const columnas = ["Clave", "Fecha", "Equipo", "Departamento", "Prioridad", "Estado"];
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text("Departamento de Sistemas - Reporte General de Incidentes", 14, 21);
+
+        // 2. METADATOS Y FECHA DE EMISIÓN
+        doc.setTextColor(90, 90, 90);
+        doc.setFontSize(9);
+        const fechaActual = new Date().toLocaleDateString('es-MX', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        doc.text(`Fecha de emisión: ${fechaActual}`, 14, 33);
+        
+        // 3. CONSTRUCCIÓN DE LA TABLA PROFESIONAL CON AUTOTABLE
+        const columnas = ["Clave", "Fecha", "Resumen (Falla)", "Departamento", "Prioridad", "Solicitante", "Estado"];
         const filas = [];
 
         reportesFiltrados.forEach(reporte => {
@@ -98,20 +117,54 @@ export default function Dashboard() {
                 reporte.equipo_afectado,
                 reporte.departamento,
                 reporte.urgencia || 'No asignada',
+                reporte.reportado_por || 'N/D',
                 reporte.estado
             ];
             filas.push(datosFila);
         });
 
         autoTable(doc, {
+            startY: 38,
             head: [columnas],
             body: filas,
-            startY: 28,
-            theme: 'striped',
-            headStyles: { fillColor: [0, 82, 204] } 
+            theme: 'grid',
+            headStyles: { 
+                fillColor: [0, 82, 204],
+                textColor: [255, 255, 255],
+                fontStyle: 'bold',
+                halign: 'center',
+                fontSize: 9
+            },
+            bodyStyles: {
+                fontSize: 8.5,
+                textColor: [40, 40, 40]
+            },
+            alternateRowStyles: {
+                fillColor: [248, 249, 250]
+            },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 18 }, // Clave
+                1: { cellWidth: 22 },                  // Fecha
+                4: { halign: 'center', cellWidth: 22 },  // Prioridad
+                6: { halign: 'center', cellWidth: 20 }   // Estado
+            }
         });
 
-        doc.save(`Reporte_Sistemas_${new Date().getTime()}.pdf`);
+        // 4. PIE DE PÁGINA AUTOMÁTICO
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text(
+                `Página ${i} de ${pageCount} — Sistema ITSM Krystal Grand`, 
+                14, 
+                287
+            );
+        }
+
+        // 5. DESCARGAR EL DOCUMENTO
+        doc.save(`Reporte_Sistemas_Krystal_${Date.now()}.pdf`);
     };
 
     return (
