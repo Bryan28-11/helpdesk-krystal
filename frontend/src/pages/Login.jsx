@@ -1,99 +1,94 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import logoKrystal from '../assets/Logo-1.png';
+import fondoHotel from '../assets/fondo.jpg';
+import './styles/Login.css';
 
 export default function Login() {
-    const [credenciales, setCredenciales] = useState({ email: '', password: '' });
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const [cargando, setCargando] = useState(false);
     const navigate = useNavigate();
 
-    const handleChange = (e) => {
-        setCredenciales({ ...credenciales, [e.target.name]: e.target.value });
-    };
-
-    const handleSubmit = async (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
-        setCargando(true);
 
         try {
-            const respuesta = await fetch('https://helpdesk-krystal.onrender.com/api/auth/login', {
+            const response = await fetch('https://helpdesk-krystal.onrender.com/api/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(credenciales)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
             });
 
-            if (respuesta.ok) {
-                const datos = await respuesta.json();
-                
-                // GUARDAMOS EL TOKEN Y LOS DATOS DEL USUARIO
-                localStorage.setItem('token', datos.token);
-                localStorage.setItem('nombre', datos.usuario.nombre);
-                localStorage.setItem('departamento', datos.usuario.departamento);
-                localStorage.setItem('rol', datos.usuario.rol);
-                
-                // Redirigimos al panel principal
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Error en el servidor. Verifica la ruta o el estado del backend.");
+            }
+
+            const data = await response.json();
+
+            if (response.ok) {
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('rol', data.rol);
+                localStorage.setItem('nombre', data.nombre || username);
                 navigate('/dashboard');
             } else {
-                const errorData = await respuesta.json();
-                setError(errorData.error || 'Credenciales incorrectas.');
+                setError(data.mensaje || 'Credenciales incorrectas');
             }
-        } catch (error) {
-            setError('Error de conexión con el servidor.');
-        } finally {
-            setCargando(false);
+        } catch (err) {
+            console.error('Error de conexión:', err);
+            setError(err.message || 'No se pudo conectar con el servidor.');
         }
     };
 
     return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f4f5f7' }}>
-            <div style={{ background: '#fff', padding: '40px', borderRadius: '8px', boxShadow: '0 4px 8px rgba(0,0,0,0.1)', width: '100%', maxWidth: '400px' }}>
-                <h2 style={{ textAlign: 'center', marginBottom: '24px', color: '#172b4d' }}>Krystal Grand ITSM</h2>
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#42526e', marginBottom: '4px' }}>
-                            Correo Electrónico
-                        </label>
-                        <input 
-                            type="email" 
-                            name="email" 
-                            value={credenciales.email} 
-                            onChange={handleChange} 
-                            required 
-                            style={{ width: '100%', padding: '10px', border: '2px solid #dfe1e6', borderRadius: '4px', outline: 'none' }} 
-                        />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#42526e', marginBottom: '4px' }}>
-                            Contraseña
-                        </label>
-                        <input 
-                            type="password" 
-                            name="password" 
-                            value={credenciales.password} 
-                            onChange={handleChange} 
-                            required 
-                            style={{ width: '100%', padding: '10px', border: '2px solid #dfe1e6', borderRadius: '4px', outline: 'none' }} 
-                        />
-                    </div>
+        <div 
+            className="login-container-wrapper"
+            style={{
+                backgroundImage: `url(${fondoHotel})`,
+                backgroundAttachment: 'fixed',
+                backgroundPosition: 'center',
+                backgroundSize: 'cover',
+                backgroundRepeat: 'no-repeat',
+                minHeight: '100vh',
+                position: 'relative',
+                width: '100%'
+            }}
+        >
+            <section className="login-box">
+                <img src={logoKrystal} alt="Logo Krystal Grand" className="logo" />
+                <h1>Krystal Grand</h1>
+                
+                {error && <div className="error-mensaje">{error}</div>}
+
+                <form onSubmit={handleLogin}>
+                    <p>Username</p>
+                    <input 
+                        type="text" 
+                        name="username" 
+                        placeholder="Enter Username" 
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                    />
                     
-                    {error && (
-                        <div style={{ color: '#de350b', fontSize: '14px', background: '#ffebe6', padding: '10px', borderRadius: '4px', fontWeight: '500' }}>
-                            {error}
-                        </div>
-                    )}
+                    <p>Password</p>
+                    <input 
+                        type="password" 
+                        name="password" 
+                        placeholder="Enter Password" 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                    />
                     
-                    <button 
-                        type="submit" 
-                        disabled={cargando} 
-                        style={{ background: '#0052cc', color: '#fff', border: 'none', padding: '12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginTop: '8px' }}
-                    >
-                        {cargando ? 'Iniciando...' : 'Iniciar Sesión'}
-                    </button>
+                    <input type="submit" name="submit" value="Login" />
+                    <a href="#forgot" onClick={(e) => { e.preventDefault(); alert("Contacte al administrador de sistemas."); }}>
+                        Forget Password
+                    </a>
                 </form>
-            </div>
+            </section>
         </div>
     );
 }
