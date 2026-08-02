@@ -15,10 +15,10 @@ export default function Login() {
         setError('');
 
         try {
-            const response = await fetch('https://helpdesk-krystal.onrender.com/api/auth/login', {
+            const response = await fetch('https://helpdesk-krystal.onrender.com/api/auth/Login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ email: username, password })
             });
 
             const contentType = response.headers.get("content-type");
