@@ -176,7 +176,7 @@ export default function Dashboard() {
                 </button>
                 
                {/* BOTONES PROTEGIDOS: Solo los ve el administrador (Sistemas) */}
-                {rolUsuario === 'admin' && (
+                {rolUsuario && rolUsuario.toLowerCase().trim() === 'admin' && (
                     <>
                         <button className="btn-secondary" onClick={() => navigate('/usuarios')}>
                             👥 Ver Usuarios

@@ -58,7 +58,7 @@ export default function Login() {
         >
             <section className="login-box">
                 <img src={logoKrystal} alt="Logo Krystal Grand" className="logo" />
-                <h1>Krystal Grand</h1>
+                <h1>Krystal Grand Nuevo Vallarta</h1>
                 
                 {error && <div className="error-mensaje">{error}</div>}
 

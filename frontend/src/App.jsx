@@ -7,6 +7,7 @@ import DashboardStats from "./pages/DashboardStats";
 import NuevoUsuario from './pages/NuevoUsuario';
 import ListaUsuarios from './pages/ListaUsuarios';
 import logoHotel from "./assets/Logo-1.png";
+import EditarUsuario from './pages/EditarUsuario';
 import Layout from './components/Layout'; // <-- Aquí llamamos al Layout
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
         <Route path="/estadisticas" element={<Layout><DashboardStats /></Layout>} />
         <Route path="/nuevo-usuario" element={<Layout><NuevoUsuario /></Layout>} />
         <Route path="/usuarios" element={<Layout><ListaUsuarios /></Layout>} />
+        <Route path="/editar-usuario/:id" element={<EditarUsuario />} />
       </Routes>
     </BrowserRouter>
   );

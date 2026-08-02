@@ -57,4 +57,70 @@ router.get('/', (req, res) => {
     });
 });
 
+// ==========================================
+// 3. EDITAR / ACTUALIZAR UN USUARIO EXISTENTE
+// ==========================================
+router.put('/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nombre, email, password, rol, departamento } = req.body;
+
+    if (!nombre || !email || !departamento) {
+        return res.status(400).json({ error: 'Nombre, email y departamento son campos obligatorios' });
+    }
+
+    try {
+        let sql = '';
+        let params = [];
+
+        // Si el usuario mandó una nueva contraseña, la encriptamos. Si viene vacía, no la tocamos.
+        if (password && password.trim() !== '') {
+            const saltos = 10;
+            const passwordEncriptada = await bcrypt.hash(password, saltos);
+            sql = 'UPDATE usuarios SET nombre = ?, email = ?, password = ?, rol = ?, departamento = ? WHERE id = ?';
+            params = [nombre, email, passwordEncriptada, rol || 'empleado', departamento, id];
+        } else {
+            sql = 'UPDATE usuarios SET nombre = ?, email = ?, rol = ?, departamento = ? WHERE id = ?';
+            params = [nombre, email, rol || 'empleado', departamento, id];
+        }
+
+        db.query(sql, params, (err, resultado) => {
+            if (err) {
+                if (err.code === 'ER_DUP_ENTRY') {
+                    return res.status(400).json({ error: 'Este correo ya está registrado por otro usuario' });
+                }
+                console.error('Error al actualizar usuario:', err);
+                return res.status(500).json({ error: 'Error interno al actualizar en la BD' });
+            }
+
+            if (resultado.affectedRows === 0) {
+                return res.status(404).json({ error: 'Usuario no encontrado' });
+            }
+
+            res.json({ mensaje: 'Usuario actualizado exitosamente' });
+        });
+    } catch (error) {
+        console.error('Error procesando la actualización:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// ==========================================
+// 4. ELIMINAR UN USUARIO
+// ==========================================
+router.delete('/:id', (req, res) => {
+    const { id } = req.params;
+    const sql = 'DELETE FROM usuarios WHERE id = ?';
+
+    db.query(sql, [id], (err, resultado) => {
+        if (err) {
+            console.error('Error al eliminar usuario:', err);
+            return res.status(500).json({ error: 'Error interno al eliminar' });
+        }
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+        res.json({ mensaje: 'Usuario eliminado correctamente' });
+    });
+});
+
 module.exports = router;
