@@ -46,14 +46,12 @@ router.post('/login', (req, res) => {
         );
 
         // 5. Se lo enviamos al frontend
+        // Dentro de tu ruta de login en el backend:
         res.json({
-            mensaje: 'Inicio de sesión exitoso',
-            token,
-            usuario: {
-                nombre: usuario.nombre,
-                departamento: usuario.departamento,
-                rol: usuario.rol
-            }
+            mensaje: 'Login exitoso',
+            token: token,
+            rol: usuario.rol,          // <-- ¡Asegúrate de mandar esta propiedad!
+            nombre: usuario.nombre     // <-- Y esta también para que no aparezca tu correo como nombre
         });
     });
 });
