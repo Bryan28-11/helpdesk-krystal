@@ -6,8 +6,15 @@ const db = require('./db');
 
 const app = express();
 
+// =================================================================
+// SEGURIDAD Y LÍMITES DE CARGA (Solución definitiva para error 413)
+// =================================================================
+// Aumentamos los límites a 50MB para soportar múltiples imágenes Base64
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// =================================================================
+
 app.use(cors()); 
-app.use(express.json()); 
 
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);

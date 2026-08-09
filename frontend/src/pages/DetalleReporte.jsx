@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logoHotel from '../assets/Logo-1.png';
-import './styles/Dashboard.css'; // Usaremos los estilos de aquí
+import './styles/Dashboard.css';
 
 export default function ReporteDetalle() {
     const { id } = useParams();
@@ -12,7 +12,7 @@ export default function ReporteDetalle() {
     const [reporte, setReporte] = useState(null);
     const [comentarios, setComentarios] = useState([]);
     const [nuevoComentario, setNuevoComentario] = useState('');
-    const [evidencia, setEvidencia] = useState(null); // Aquí guardaremos la foto en Base64
+    const [evidencias, setEvidencias] = useState([]); // Cambiado a arreglo para múltiples imágenes
     const [enviando, setEnviando] = useState(false);
 
     const rolUsuario = localStorage.getItem('rol'); 
@@ -59,40 +59,46 @@ export default function ReporteDetalle() {
         }
     };
 
-    // FUNCIÓN MAGICA PARA CONVERTIR IMAGEN A TEXTO BASE64
+    // MANEJADOR PARA MÚLTIPLES IMÁGENES EN BASE64
     const manejarSubidaImagen = (e) => {
-        const archivo = e.target.files[0];
-        if (archivo) {
+        const archivos = Array.from(e.target.files);
+        const nuevasEvidencias = [];
+
+        archivos.forEach(archivo => {
             const lector = new FileReader();
             lector.onloadend = () => {
-                setEvidencia(lector.result); // Guardamos la imagen codificada
+                nuevasEvidencias.push(lector.result);
+                if (nuevasEvidencias.length === archivos.length) {
+                    setEvidencias(prev => [...prev, ...nuevasEvidencias]);
+                }
             };
             lector.readAsDataURL(archivo);
-        }
+        });
     };
 
     const enviarComentario = async (e) => {
-            e.preventDefault();
-            setEnviando(true);
-            try {
-                const res = await fetch('https://helpdesk-krystal.onrender.com/api/comentarios', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        reporte_id: id,
-                        autor: nombreUsuario, // <-- Cambiado de usuario_nombre a autor
-                        rol: rolUsuario,      // <-- Agregamos el rol
-                        comentario: nuevoComentario,
-                        evidencia: evidencia
-                    })
-                });
+        e.preventDefault();
+        setEnviando(true);
+        try {
+            const res = await fetch('https://helpdesk-krystal.onrender.com/api/comentarios', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reporte_id: id,
+                    autor: nombreUsuario,
+                    rol: rolUsuario,
+                    comentario: nuevoComentario,
+                    // Convertimos el arreglo de evidencias a string JSON para guardarlo sin problema
+                    evidencia: evidencias.length > 0 ? JSON.stringify(evidencias) : null
+                })
+            });
 
             if (res.ok) {
                 setNuevoComentario('');
-                setEvidencia(null);
-                // Reseteamos el input file
-                document.getElementById('input-evidencia').value = ""; 
-                cargarDatos(); // Recargamos el historial
+                setEvidencias([]);
+                const inputEl = document.getElementById('input-evidencia');
+                if (inputEl) inputEl.value = ""; 
+                cargarDatos(); 
             }
         } catch (error) {
             console.error('Error al enviar:', error);
@@ -101,7 +107,7 @@ export default function ReporteDetalle() {
         }
     };
 
-// Función auxiliar para las fechas
+    // Función auxiliar para las fechas
     const formatearFecha = (fechaString) => {
         if (!fechaString) return '---';
         const fechaObj = new Date(fechaString);
@@ -209,38 +215,46 @@ export default function ReporteDetalle() {
             }
         });
 
-        // 5. AGREGAR EVIDENCIAS DE LA BITÁCORA AL PDF
+        // 5. AGREGAR EVIDENCIAS DE LA BITÁCORA AL PDF (Soporta múltiples imágenes)
         let posicionYFinal = doc.lastAutoTable.finalY + 10;
 
         if (comentarios && comentarios.length > 0) {
-            const comentariosConEvidencia = comentarios.filter(c => c.evidencia && c.evidencia.startsWith('data:image'));
+            for (const item of comentarios) {
+                if (!item.evidencia) continue;
 
-            if (comentariosConEvidencia.length > 0) {
-                if (posicionYFinal > 220) {
-                    doc.addPage();
-                    posicionYFinal = 20;
+                let imgsArray = [];
+                try {
+                    // Verificamos si está guardado como JSON string (múltiples) o Base64 directo (individual)
+                    if (item.evidencia.startsWith('[')) {
+                        imgsArray = JSON.parse(item.evidencia);
+                    } else if (item.evidencia.startsWith('data:image')) {
+                        imgsArray = [item.evidencia];
+                    }
+                } catch (err) {
+                    console.log('Error al procesar evidencias del comentario', err);
                 }
 
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(11);
-                doc.setTextColor(30, 41, 59);
-                doc.text("Evidencias Fotográficas de la Bitácora", 14, posicionYFinal);
-                posicionYFinal += 6;
-
-                for (const item of comentariosConEvidencia) {
-                    if (posicionYFinal > 200) {
+                if (imgsArray.length > 0) {
+                    if (posicionYFinal > 210) {
                         doc.addPage();
                         posicionYFinal = 20;
                     }
 
-                    doc.setFont("helvetica", "normal");
-                    doc.setFontSize(8);
-                    doc.setTextColor(100, 116, 139);
-                    doc.text(`Bitácora por: ${item.autor || 'Técnico'} (${item.rol || 'admin'}) — Fecha: ${formatearFecha(item.fecha)}`, 14, posicionYFinal);
-                    posicionYFinal += 4;
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(10);
+                    doc.setTextColor(30, 41, 59);
+                    doc.text(`Evidencia de Bitácora — ${item.autor || 'Técnico'} (${formatearFecha(item.fecha)})`, 14, posicionYFinal);
+                    posicionYFinal += 6;
 
-                    doc.addImage(item.evidencia, 'PNG', 14, posicionYFinal, 50, 40);
-                    posicionYFinal += 45; 
+                    for (const imgBase64 of imgsArray) {
+                        if (posicionYFinal > 200) {
+                            doc.addPage();
+                            posicionYFinal = 20;
+                        }
+                        doc.addImage(imgBase64, 'PNG', 14, posicionYFinal, 50, 40);
+                        posicionYFinal += 45;
+                    }
+                    posicionYFinal += 5;
                 }
             }
         }
@@ -308,39 +322,52 @@ export default function ReporteDetalle() {
                     )}
                 </div>
 
-                {/* ==========================================
-                    ZONA DE BITÁCORA Y EVIDENCIAS
-                    ========================================== */}
+                {/* ZONA DE BITÁCORA Y EVIDENCIAS */}
                 <h3 style={{ color: '#172b4d', marginBottom: '16px' }}>Bitácora de Sistemas</h3>
                 
-                    <div className="comentarios-lista">
-                                            {comentarios.length === 0 ? (
-                                                <p style={{ color: '#6b778c', fontStyle: 'italic' }}>No hay actualizaciones en la bitácora aún.</p>
-                                            ) : (
-                                                comentarios.map(com => (
-                                                    <div key={com.id} className="comentario-burbuja">
-                                                        <div className="comentario-header">
-                                                            {/* Cambiamos com.usuario_nombre por com.autor */}
-                                                            <strong>{com.autor} ({com.rol})</strong> 
-                                                            <span>{new Date(com.fecha).toLocaleString('es-MX')}</span>
-                                                        </div>
-                                                        <p>{com.comentario}</p>
-                                                        {com.evidencia && (
-                                                            <div className="comentario-evidencia">
-                                                                <img src={com.evidencia} alt="Evidencia del sistema" />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))
-                                            )}
+                <div className="comentarios-lista">
+                    {comentarios.length === 0 ? (
+                        <p style={{ color: '#6b778c', fontStyle: 'italic' }}>No hay actualizaciones en la bitácora aún.</p>
+                    ) : (
+                        comentarios.map(com => {
+                            let imagenesRender = [];
+                            try {
+                                if (com.evidencia && com.evidencia.startsWith('[')) {
+                                    imagenesRender = JSON.parse(com.evidencia);
+                                } else if (com.evidencia && com.evidencia.startsWith('data:image')) {
+                                    imagenesRender = [com.evidencia];
+                                }
+                            } catch (e) {
+                                console.log('Error parseando imagen', e);
+                            }
+
+                            return (
+                                <div key={com.id} className="comentario-burbuja" style={{ marginBottom: '16px', padding: '16px', background: '#f4f5f7', borderRadius: '4px' }}>
+                                    <div className="comentario-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px', color: '#5e6c84' }}>
+                                        <strong>{com.autor} ({com.rol})</strong> 
+                                        <span>{new Date(com.fecha).toLocaleString('es-MX')}</span>
+                                    </div>
+                                    <p style={{ margin: '0 0 12px 0', color: '#172b4d' }}>{com.comentario}</p>
+                                    
+                                    {imagenesRender.length > 0 && (
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+                                            {imagenesRender.map((imgSrc, idx) => (
+                                                <img key={idx} src={imgSrc} alt={`Evidencia ${idx + 1}`} style={{ width: '100px', height: '80px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #dfe1e6' }} />
+                                            ))}
                                         </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
 
                 {/* FORMULARIO SOLO PARA ADMIN */}
                 {rolUsuario === 'admin' && (
-                    <form onSubmit={enviarComentario} className="comentario-form">
+                    <form onSubmit={enviarComentario} className="comentario-form" style={{ marginTop: '24px' }}>
                         <textarea 
                             className="search-input" 
-                            style={{ width: '100%', minHeight: '80px', marginBottom: '12px' }}
+                            style={{ width: '100%', minHeight: '80px', marginBottom: '12px', padding: '10px' }}
                             placeholder="Añadir nota técnica o actualización..."
                             value={nuevoComentario}
                             onChange={(e) => setNuevoComentario(e.target.value)}
@@ -351,6 +378,7 @@ export default function ReporteDetalle() {
                                 type="file" 
                                 id="input-evidencia"
                                 accept="image/*" 
+                                multiple // PERMITE SELECCIONAR MÚLTIPLES IMÁGENES
                                 onChange={manejarSubidaImagen} 
                                 style={{ fontSize: '13px' }}
                             />
