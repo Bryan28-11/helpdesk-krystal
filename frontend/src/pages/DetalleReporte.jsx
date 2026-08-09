@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import logoHotel from '../assets/Logo-1.png';
 import './styles/Dashboard.css'; // Usaremos los estilos de aquí
 
 export default function ReporteDetalle() {
@@ -100,28 +101,165 @@ export default function ReporteDetalle() {
         }
     };
 
-    const descargarTicketPDF = () => {
-        const doc = new jsPDF();
-        doc.setFontSize(18);
-        doc.setTextColor(0, 82, 204);
-        doc.text(`Orden de Trabajo - ITSM-${reporte.id}`, 14, 20);
-        doc.setFontSize(12);
-        doc.setTextColor(23, 43, 77);
-        doc.text(`Generado el: ${new Date().toLocaleDateString('es-MX')}`, 14, 28);
+// Función auxiliar para las fechas
+    const formatearFecha = (fechaString) => {
+        if (!fechaString) return '---';
+        const fechaObj = new Date(fechaString);
+        if (isNaN(fechaObj.getTime())) return '---';
         
-        autoTable(doc, {
-            startY: 35,
-            theme: 'grid',
-            headStyles: { fillColor: [244, 245, 247], textColor: [23, 43, 77] },
-            body: [
-                ['Dispositivo Afectado', reporte.equipo_afectado],
-                ['Departamento', reporte.departamento],
-                ['Reportado por', reporte.reportado_por],
-                ['Prioridad', reporte.urgencia],
-                ['Estado Actual', reporte.estado],
-                ['Falla Reportada', reporte.descripcion]
-            ]
+        return fechaObj.toLocaleDateString('es-MX', {
+            day: '2-digit', month: 'short', year: 'numeric'
         });
+    };
+
+    const descargarTicketPDF = async () => {
+        const doc = new jsPDF('p', 'mm', 'a4');
+
+        // Función para escalar el logo con proporciones exactas
+        const obtenerLogoProporcional = (imgSrc) => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+
+                    const aspectRatio = img.width / img.height;
+                    const targetHeight = 16; 
+                    const targetWidth = targetHeight * aspectRatio;
+
+                    resolve({
+                        dataUrl: canvas.toDataURL('image/png'),
+                        width: targetWidth,
+                        height: targetHeight
+                    });
+                };
+                img.onerror = reject;
+                img.src = imgSrc;
+            });
+        };
+
+        // 1. INCRUSTAR EL LOGO CORPORATIVO
+        try {
+            const logo = await obtenerLogoProporcional(logoHotel);
+            doc.addImage(logo.dataUrl, 'PNG', 14, 8, logo.width, logo.height);
+        } catch (e) {
+            console.log('Aviso: No se pudo cargar el logo dinámico', e);
+        }
+
+        // 2. ENCABEZADO EJECUTIVO Y CENTRADO
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.setTextColor(30, 41, 59);
+        doc.text("KRYSTAL GRAND NUEVO VALLARTA", 105, 15, { align: 'center' });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Orden de Trabajo / Incidente ITSM-${reporte.id}`, 105, 20, { align: 'center' });
+
+        // Línea divisoria elegante
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.4);
+        doc.line(14, 25, 196, 25);
+
+        // 3. FECHA DE EMISIÓN
+        doc.setFontSize(8.5);
+        doc.setTextColor(70, 70, 70);
+        const fechaActual = new Date().toLocaleDateString('es-MX', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        doc.text(`Fecha de emisión: ${fechaActual}`, 14, 32);
+
+        // 4. DATOS DE LA ORDEN EN FORMATO DE TABLA TÉCNICA
+        const filasTicket = [
+            ["Clave del Ticket", `ITSM-${reporte.id}`],
+            ["Dispositivo Afectado", reporte.equipo_afectado || 'N/D'],
+            ["Departamento", reporte.departamento || 'N/D'],
+            ["Reportado por", reporte.reportado_por || 'N/D'],
+            ["Prioridad", reporte.urgencia || 'No asignada'],
+            ["Estado Actual", reporte.estado || 'Abierto'],
+            ["Fecha de Registro", formatearFecha(reporte.fecha_reporte)],
+            ["Descripción / Falla", reporte.descripcion || reporte.falla || 'Sin descripción detallada']
+        ];
+
+        autoTable(doc, {
+            startY: 37,
+            head: [["Campo de la Orden", "Detalle del Incidente"]],
+            body: filasTicket,
+            theme: 'grid',
+            headStyles: { 
+                fillColor: [0, 82, 204], 
+                textColor: [255, 255, 255],
+                fontStyle: 'bold',
+                fontSize: 9
+            },
+            bodyStyles: {
+                fontSize: 8.5,
+                textColor: [40, 40, 40]
+            },
+            columnStyles: {
+                0: { fontStyle: 'bold', cellWidth: 50, fillColor: [241, 245, 249] },
+                1: { cellWidth: 132 }
+            }
+        });
+
+        // 5. AGREGAR EVIDENCIAS DE LA BITÁCORA AL PDF
+        let posicionYFinal = doc.lastAutoTable.finalY + 10;
+
+        if (comentarios && comentarios.length > 0) {
+            const comentariosConEvidencia = comentarios.filter(c => c.evidencia && c.evidencia.startsWith('data:image'));
+
+            if (comentariosConEvidencia.length > 0) {
+                if (posicionYFinal > 220) {
+                    doc.addPage();
+                    posicionYFinal = 20;
+                }
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.setTextColor(30, 41, 59);
+                doc.text("Evidencias Fotográficas de la Bitácora", 14, posicionYFinal);
+                posicionYFinal += 6;
+
+                for (const item of comentariosConEvidencia) {
+                    if (posicionYFinal > 200) {
+                        doc.addPage();
+                        posicionYFinal = 20;
+                    }
+
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(8);
+                    doc.setTextColor(100, 116, 139);
+                    doc.text(`Bitácora por: ${item.autor || 'Técnico'} (${item.rol || 'admin'}) — Fecha: ${formatearFecha(item.fecha)}`, 14, posicionYFinal);
+                    posicionYFinal += 4;
+
+                    doc.addImage(item.evidencia, 'PNG', 14, posicionYFinal, 50, 40);
+                    posicionYFinal += 45; 
+                }
+            }
+        }
+
+        // 6. PIE DE PÁGINA PROFESIONAL AUTOMÁTICO
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(140, 140, 140);
+            doc.text(
+                `Página ${i} de ${pageCount} — Sistema ITSM Krystal Grand Nuevo Vallarta`, 
+                105, 
+                287, 
+                { align: 'center' }
+            );
+        }
+
+        // 7. DESCARGAR EL PDF INDIVIDUAL
         doc.save(`Ticket_ITSM_${reporte.id}.pdf`);
     };
 
@@ -176,26 +314,26 @@ export default function ReporteDetalle() {
                 <h3 style={{ color: '#172b4d', marginBottom: '16px' }}>Bitácora de Sistemas</h3>
                 
                     <div className="comentarios-lista">
-                                        {comentarios.length === 0 ? (
-                                            <p style={{ color: '#6b778c', fontStyle: 'italic' }}>No hay actualizaciones en la bitácora aún.</p>
-                                        ) : (
-                                            comentarios.map(com => (
-                                                <div key={com.id} className="comentario-burbuja">
-                                                    <div className="comentario-header">
-                                                        {/* Cambiamos com.usuario_nombre por com.autor */}
-                                                        <strong>{com.autor} ({com.rol})</strong> 
-                                                        <span>{new Date(com.fecha).toLocaleString('es-MX')}</span>
-                                                    </div>
-                                                    <p>{com.comentario}</p>
-                                                    {com.evidencia && (
-                                                        <div className="comentario-evidencia">
-                                                            <img src={com.evidencia} alt="Evidencia del sistema" />
+                                            {comentarios.length === 0 ? (
+                                                <p style={{ color: '#6b778c', fontStyle: 'italic' }}>No hay actualizaciones en la bitácora aún.</p>
+                                            ) : (
+                                                comentarios.map(com => (
+                                                    <div key={com.id} className="comentario-burbuja">
+                                                        <div className="comentario-header">
+                                                            {/* Cambiamos com.usuario_nombre por com.autor */}
+                                                            <strong>{com.autor} ({com.rol})</strong> 
+                                                            <span>{new Date(com.fecha).toLocaleString('es-MX')}</span>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
+                                                        <p>{com.comentario}</p>
+                                                        {com.evidencia && (
+                                                            <div className="comentario-evidencia">
+                                                                <img src={com.evidencia} alt="Evidencia del sistema" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
 
                 {/* FORMULARIO SOLO PARA ADMIN */}
                 {rolUsuario === 'admin' && (

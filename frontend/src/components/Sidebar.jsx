@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logoHotel from '../assets/Logo-1.png';
 import logoBuscar from '../assets/buscar.png';
 import iconoHome from '../assets/casa.png';
 import iconoCerrar   from '../assets/cerrar-sesion.png';
+import BuscadorGlobal from './BuscadorGlobal';
 
 export default function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
+    
+    // Estado para controlar la apertura del buscador global flotante
+    const [isBuscadorOpen, setIsBuscadorOpen] = useState(false);
     
     // Obtenemos el rol y nombre del usuario logueado
     const rolUsuario = localStorage.getItem('rol');
@@ -64,8 +68,8 @@ export default function Sidebar() {
                     <img src={iconoHome} alt="Inicio" style={{ width: '24px', height: '24px' }} />
                 </div>
 
-                {/* 3. Botón de Búsqueda rápida */}
-                <div className="rail-icon" title="Buscar / Reportes" onClick={() => navigate('/dashboard')}>
+                {/* 3. Botón de Búsqueda Global Flotante */}
+                <div className="rail-icon" title="Búsqueda Global" onClick={() => setIsBuscadorOpen(true)}>
                     <img src={logoBuscar} alt="Buscar" style={{ width: '24px', height: '24px' }} />
                 </div>
 
@@ -141,6 +145,9 @@ export default function Sidebar() {
                     )}
                 </ul>
             </div>
+
+            {/* BUSCADOR GLOBAL FLOTANTE */}
+            <BuscadorGlobal isOpen={isBuscadorOpen} onClose={() => setIsBuscadorOpen(false)} />
         </>
     );
 }
